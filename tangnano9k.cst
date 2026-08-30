@@ -1,3 +1,18 @@
+IO_LOC  "lcd_mosi" 53;
+IO_PORT "lcd_mosi" DRIVE=8 IO_TYPE=LVCMOS33;
+
+IO_LOC  "lcd_sclk" 54;
+IO_PORT "lcd_sclk" DRIVE=8 IO_TYPE=LVCMOS33;
+
+IO_LOC  "lcd_cs" 55;
+IO_PORT "lcd_cs" DRIVE=8 IO_TYPE=LVCMOS33;
+
+IO_LOC  "lcd_dc" 56;
+IO_PORT "lcd_dc" DRIVE=8 IO_TYPE=LVCMOS33;
+
+IO_LOC  "lcd_rst" 57;
+IO_PORT "lcd_rst" DRIVE=8 IO_TYPE=LVCMOS33;
+
 IO_LOC  "clk" 52;
 IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
@@ -18,9 +33,3 @@ IO_PORT "led[4]" DRIVE=8 IO_TYPE=LVCMOS18;
 
 IO_LOC  "led[5]" 16;
 IO_PORT "led[5]" DRIVE=8 IO_TYPE=LVCMOS18;
-
-IO_LOC  "btn1" 3;
-IO_PORT "btn1" IO_TYPE=LVCMOS18;
-
-IO_LOC  "btn2" 4;
-IO_PORT "btn2" IO_TYPE=LVCMOS18;
