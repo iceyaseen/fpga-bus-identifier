@@ -1,0 +1,3016 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.11.1-18-gdec04b3b)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": " ",
+        "arch.name": "himbaechel",
+        "router": "default",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "27000000.000000",
+        "cst.filename": "/home/seso/Github_Projects/FPGA_comunication_checker/tangnano9k.cst",
+        "packer.partno": "GW1NR-LV9QN88PC6/I5",
+        "packer.chipdb": "GW1N-9C",
+        "packer.arch": "himbaechel/gowin"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:1.1-20.10"
+      },
+      "ports": {
+        "led": {
+          "direction": "output",
+          "bits": [ 7862, 7860, 7858, 7856, 7854, 7852 ]
+        },
+        "clk": {
+          "direction": "input",
+          "bits": [ 7708 ]
+        }
+      },
+      "cells": {
+        "counter_DFFR_Q_9_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X4Y7/LUT2"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7946 ],
+            "I3": [ 7841 ]
+          }
+        },
+        "counter_DFFR_Q_13_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X3Y7/LUT1"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7962 ],
+            "I3": [ 7742 ]
+          }
+        },
+        "counter_DFFR_Q_16_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X3Y7/LUT3"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7960 ],
+            "I3": [ 7759 ]
+          }
+        },
+        "counter_DFFR_Q_17_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X3Y7/LUT5"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7958 ],
+            "I3": [ 7765 ]
+          }
+        },
+        "counter_DFFR_Q_23_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X2Y7/LUT3"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7956 ],
+            "I3": [ 7803 ]
+          }
+        },
+        "counter_DFFR_Q_3_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X2Y7/LUT4"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7954 ],
+            "I3": [ 7810 ]
+          }
+        },
+        "counter_DFFR_Q_4_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X1Y7/LUT1"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7952 ],
+            "I3": [ 7815 ]
+          }
+        },
+        "counter_DFFR_Q_5_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X1Y7/LUT4"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7950 ],
+            "I3": [ 7821 ]
+          }
+        },
+        "counter_DFFR_Q_6_passthrough_lut$": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "00000000000000001111111100000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X5Y8/LUT2"
+          },
+          "port_directions": {
+            "F": "output",
+            "I3": "input"
+          },
+          "connections": {
+            "F": [ 7948 ],
+            "I3": [ 7825 ]
+          }
+        },
+        "counter_DFFR_Q_6_D_ALU_SUM_DUMMY_ALULC": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "ALU_MODE": "C2L"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X5Y8/ALU1"
+          },
+          "port_directions": {
+          },
+          "connections": {
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_CIN_ALU_COUT_HEAD_ALULC": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "ALU_MODE": "C2L"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU0"
+          },
+          "port_directions": {
+            "I2": "input",
+            "COUT": "output"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "COUT": [ 7906 ]
+          }
+        },
+        "GSR": {
+          "hide_name": 0,
+          "type": "GSR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X0Y0/GSR"
+          },
+          "port_directions": {
+            "GSRI": "input"
+          },
+          "connections": {
+            "GSRI": [ 7901 ]
+          }
+        },
+        "state_DFFE_Q_D_LUT1_F": {
+          "hide_name": 0,
+          "type": "LUT1",
+          "parameters": {
+            "INIT": "01"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y10/LUT0",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:135.23-136.15",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I0": [ 7851 ],
+            "F": [ 7864 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_S0_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "0000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y7/LUT0",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7785 ],
+            "I2": [ 7716 ],
+            "I1": [ 7816 ],
+            "I0": [ 7822 ],
+            "F": [ 7875 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_I1_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "0000000001000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/LUT7",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:153.41-153.66|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7722 ],
+            "I2": [ 7812 ],
+            "I1": [ 7805 ],
+            "I0": [ 7799 ],
+            "F": [ 7874 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_I0_LUT1_F": {
+          "hide_name": 0,
+          "type": "LUT1",
+          "parameters": {
+            "INIT": "00"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/LUT6",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:152.41-152.66|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I0": [  ],
+            "F": [ 7873 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_S0_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "0000000010000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/LUT7",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7793 ],
+            "I2": [ 7788 ],
+            "I1": [ 7777 ],
+            "I0": [ 7772 ],
+            "F": [ 7879 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_I1_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "1000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/LUT1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:153.41-153.66|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7767 ],
+            "I2": [ 7761 ],
+            "I1": [ 7755 ],
+            "I0": [ 7749 ],
+            "F": [ 7878 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_I0_LUT1_F": {
+          "hide_name": 0,
+          "type": "LUT1",
+          "parameters": {
+            "INIT": "00"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/LUT0",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:152.41-152.66|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I0": [  ],
+            "F": [ 7877 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1": {
+          "hide_name": 0,
+          "type": "MUX2_LUT5",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/MUX0",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:154.14-154.54",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "S0": "input",
+            "O": "output",
+            "I1": "input",
+            "I0": "input"
+          },
+          "connections": {
+            "S0": [ 7879 ],
+            "O": [ 7868 ],
+            "I1": [ 7878 ],
+            "I0": [ 7877 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O": {
+          "hide_name": 0,
+          "type": "MUX2_LUT5",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/MUX6",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:154.14-154.54",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "S0": "input",
+            "O": "output",
+            "I1": "input",
+            "I0": "input"
+          },
+          "connections": {
+            "S0": [ 7875 ],
+            "O": [ 7869 ],
+            "I1": [ 7874 ],
+            "I0": [ 7873 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_LUT4_F_1": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "0000000000001000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/LUT6",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7842 ],
+            "I2": [ 7837 ],
+            "I1": [ 7832 ],
+            "I0": [ 7826 ],
+            "F": [ 7867 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "0000100000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/LUT6",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7743 ],
+            "I2": [ 7738 ],
+            "I1": [ 7733 ],
+            "I0": [ 7725 ],
+            "F": [ 7866 ]
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F": {
+          "hide_name": 0,
+          "type": "LUT4",
+          "parameters": {
+            "INIT": "1000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y7/LUT0",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:147.23-148.48",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I3": "input",
+            "I2": "input",
+            "I1": "input",
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I3": [ 7869 ],
+            "I2": [ 7868 ],
+            "I1": [ 7867 ],
+            "I0": [ 7866 ],
+            "F": [ 7717 ]
+          }
+        },
+        "state_DFFE_Q": {
+          "hide_name": 0,
+          "type": "DFFE",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y10/DFF0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:19.7-19.56",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "D": "input",
+            "CLK": "input",
+            "CE": "input"
+          },
+          "connections": {
+            "Q": [ 7851 ],
+            "D": [ 7864 ],
+            "CLK": [ 7712 ],
+            "CE": [ 7717 ]
+          }
+        },
+        "led_OBUF_O_5": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y14/IOBA",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7862 ],
+            "I": [ 7851 ]
+          }
+        },
+        "led_OBUF_O_4": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y15/IOBB",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7860 ],
+            "I": [ 7851 ]
+          }
+        },
+        "led_OBUF_O_3": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y20/IOBB",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7858 ],
+            "I": [ 7851 ]
+          }
+        },
+        "led_OBUF_O_2": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y21/IOBB",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7856 ],
+            "I": [ 7851 ]
+          }
+        },
+        "led_OBUF_O_1": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y24/IOBB",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7854 ],
+            "I": [ 7851 ]
+          }
+        },
+        "led_OBUF_O": {
+          "hide_name": 0,
+          "type": "OBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X0Y25/IOBB",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26",
+            "&DRIVE=8": "00000000000000000000000000000001",
+            "&IO_TYPE=LVCMOS18": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7852 ],
+            "I": [ 7851 ]
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_CIN_ALU_COUT": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000000011000000111111",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7849 ],
+            "I3": [  ],
+            "I1": [ 7785 ],
+            "I0": [  ],
+            "COUT": [ 7847 ],
+            "CIN": [ 7906 ]
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7715 ],
+            "I3": [  ],
+            "I1": [ 7716 ],
+            "I0": [  ],
+            "COUT": [ 7818 ],
+            "CIN": [ 7847 ]
+          }
+        },
+        "$PACKER_GND_DRV": {
+          "hide_name": 1,
+          "type": "GOWIN_GND",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X0Y0/GND"
+          },
+          "port_directions": {
+            "G": "output"
+          },
+          "connections": {
+            "G": [ 7902 ]
+          }
+        },
+        "$PACKER_VCC_DRV": {
+          "hide_name": 1,
+          "type": "GOWIN_VCC",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X0Y0/VCC"
+          },
+          "port_directions": {
+            "V": "output"
+          },
+          "connections": {
+            "V": [ 7901 ]
+          }
+        },
+        "counter_DFFR_Q_9_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7841 ],
+            "I3": [  ],
+            "I1": [ 7842 ],
+            "I0": [  ],
+            "COUT": [ 7839 ],
+            "CIN": [ 7728 ]
+          }
+        },
+        "counter_DFFR_Q_9": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y7/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7842 ],
+            "D": [ 7946 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_8_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7836 ],
+            "I3": [  ],
+            "I1": [ 7837 ],
+            "I0": [  ],
+            "COUT": [ 7834 ],
+            "CIN": [ 7839 ]
+          }
+        },
+        "counter_DFFR_Q_8": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/DFF4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7837 ],
+            "D": [ 7836 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_7_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7831 ],
+            "I3": [  ],
+            "I1": [ 7832 ],
+            "I0": [  ],
+            "COUT": [ 7828 ],
+            "CIN": [ 7834 ]
+          }
+        },
+        "counter_DFFR_Q_7": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/DFF5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7832 ],
+            "D": [ 7831 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_6_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X5Y8/ALU0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7825 ],
+            "I3": [  ],
+            "I1": [ 7826 ],
+            "I0": [  ],
+            "COUT": [ 7829 ],
+            "CIN": [ 7828 ]
+          }
+        },
+        "counter_DFFR_Q_6": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X5Y8/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7826 ],
+            "D": [ 7948 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_5_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7821 ],
+            "I3": [  ],
+            "I1": [ 7822 ],
+            "I0": [  ],
+            "COUT": [ 7781 ],
+            "CIN": [ 7819 ]
+          }
+        },
+        "counter_DFFR_Q_5": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y7/DFF4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7822 ],
+            "D": [ 7950 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_4_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7815 ],
+            "I3": [  ],
+            "I1": [ 7816 ],
+            "I0": [  ],
+            "COUT": [ 7819 ],
+            "CIN": [ 7818 ]
+          }
+        },
+        "counter_DFFR_Q_4": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y7/DFF1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7816 ],
+            "D": [ 7952 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_3_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7810 ],
+            "I3": [  ],
+            "I1": [ 7812 ],
+            "I0": [  ],
+            "COUT": [ 7807 ],
+            "CIN": [ 7782 ]
+          }
+        },
+        "counter_DFFR_Q_3": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/DFF4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7812 ],
+            "D": [ 7954 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_2_D_LUT1_F": {
+          "hide_name": 0,
+          "type": "LUT1",
+          "parameters": {
+            "INIT": "01"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y7/LUT2",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:135.23-136.15",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I0": "input",
+            "F": "output"
+          },
+          "connections": {
+            "I0": [ 7785 ],
+            "F": [ 7784 ]
+          }
+        },
+        "counter_DFFR_Q_23_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7803 ],
+            "I3": [  ],
+            "I1": [ 7805 ],
+            "I0": [  ],
+            "COUT": [ 7801 ],
+            "CIN": [ 7807 ]
+          }
+        },
+        "counter_DFFR_Q_23": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y7/DFF3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7805 ],
+            "D": [ 7956 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_22_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7797 ],
+            "I3": [  ],
+            "I1": [ 7799 ],
+            "I0": [  ],
+            "COUT": [ 7795 ],
+            "CIN": [ 7801 ]
+          }
+        },
+        "counter_DFFR_Q_22": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7799 ],
+            "D": [ 7797 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_21_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7792 ],
+            "I3": [  ],
+            "I1": [ 7793 ],
+            "I0": [  ],
+            "COUT": [ 7790 ],
+            "CIN": [ 7795 ]
+          }
+        },
+        "counter_DFFR_Q_21": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/DFF3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7793 ],
+            "D": [ 7792 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_20_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7787 ],
+            "I3": [  ],
+            "I1": [ 7788 ],
+            "I0": [  ],
+            "COUT": [ 7779 ],
+            "CIN": [ 7790 ]
+          }
+        },
+        "counter_DFFR_Q_20": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/DFF4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7788 ],
+            "D": [ 7787 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_2": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y7/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7785 ],
+            "D": [ 7784 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_1_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/ALU5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7720 ],
+            "I3": [  ],
+            "I1": [ 7722 ],
+            "I0": [  ],
+            "COUT": [ 7782 ],
+            "CIN": [ 7781 ]
+          }
+        },
+        "counter_DFFR_Q_19_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/ALU5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7776 ],
+            "I3": [  ],
+            "I1": [ 7777 ],
+            "I0": [  ],
+            "COUT": [ 7774 ],
+            "CIN": [ 7779 ]
+          }
+        },
+        "counter_DFFR_Q_19": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X2Y8/DFF5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7777 ],
+            "D": [ 7776 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_18_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7771 ],
+            "I3": [  ],
+            "I1": [ 7772 ],
+            "I0": [  ],
+            "COUT": [ 7769 ],
+            "CIN": [ 7774 ]
+          }
+        },
+        "counter_DFFR_Q_18": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/DFF0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7772 ],
+            "D": [ 7771 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_17_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7765 ],
+            "I3": [  ],
+            "I1": [ 7767 ],
+            "I0": [  ],
+            "COUT": [ 7763 ],
+            "CIN": [ 7769 ]
+          }
+        },
+        "counter_DFFR_Q_17": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y7/DFF5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7767 ],
+            "D": [ 7958 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_16_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7759 ],
+            "I3": [  ],
+            "I1": [ 7761 ],
+            "I0": [  ],
+            "COUT": [ 7757 ],
+            "CIN": [ 7763 ]
+          }
+        },
+        "counter_DFFR_Q_16": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y7/DFF3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7761 ],
+            "D": [ 7960 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_15_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7753 ],
+            "I3": [  ],
+            "I1": [ 7755 ],
+            "I0": [  ],
+            "COUT": [ 7751 ],
+            "CIN": [ 7757 ]
+          }
+        },
+        "counter_DFFR_Q_15": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/DFF3",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7755 ],
+            "D": [ 7753 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_14_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7747 ],
+            "I3": [  ],
+            "I1": [ 7749 ],
+            "I0": [  ],
+            "COUT": [ 7745 ],
+            "CIN": [ 7751 ]
+          }
+        },
+        "counter_DFFR_Q_14": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/DFF4",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7749 ],
+            "D": [ 7747 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_13_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y8/ALU5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7742 ],
+            "I3": [  ],
+            "I1": [ 7743 ],
+            "I0": [  ],
+            "COUT": [ 7740 ],
+            "CIN": [ 7745 ]
+          }
+        },
+        "counter_DFFR_Q_13": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X3Y7/DFF1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7743 ],
+            "D": [ 7962 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_12_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7737 ],
+            "I3": [  ],
+            "I1": [ 7738 ],
+            "I0": [  ],
+            "COUT": [ 7735 ],
+            "CIN": [ 7740 ]
+          }
+        },
+        "counter_DFFR_Q_12": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/DFF0",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7738 ],
+            "D": [ 7737 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_11_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7732 ],
+            "I3": [  ],
+            "I1": [ 7733 ],
+            "I0": [  ],
+            "COUT": [ 7727 ],
+            "CIN": [ 7735 ]
+          }
+        },
+        "counter_DFFR_Q_11": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/DFF1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7733 ],
+            "D": [ 7732 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_10_D_ALU_SUM": {
+          "hide_name": 0,
+          "type": "ALU",
+          "parameters": {
+            "RAW_ALU_LUT": "00000000000000001100000011000000",
+            "ALU_MODE": "00000000000000000000000000000010"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/ALU2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I2": "input",
+            "SUM": "output",
+            "I3": "input",
+            "I1": "input",
+            "I0": "input",
+            "COUT": "output",
+            "CIN": "input"
+          },
+          "connections": {
+            "I2": [ 7901 ],
+            "SUM": [ 7724 ],
+            "I3": [  ],
+            "I1": [ 7725 ],
+            "I0": [  ],
+            "COUT": [ 7728 ],
+            "CIN": [ 7727 ]
+          }
+        },
+        "counter_DFFR_Q_10": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X4Y8/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7725 ],
+            "D": [ 7724 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q_1": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/DFF5",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7722 ],
+            "D": [ 7720 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "counter_DFFR_Q": {
+          "hide_name": 0,
+          "type": "DFFR",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X1Y8/DFF2",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:9.5-16.8|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:31.7-31.59",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "RESET": "input",
+            "Q": "output",
+            "D": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "RESET": [ 7717 ],
+            "Q": [ 7716 ],
+            "D": [ 7715 ],
+            "CLK": [ 7712 ]
+          }
+        },
+        "clk_IBUF_I": {
+          "hide_name": 0,
+          "type": "IBUF",
+          "parameters": {
+            "NET_I": "NET",
+            "NET_O": "NET"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X46Y16/IOBA",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:2.23-2.26",
+            "&IO_TYPE=LVCMOS33": "00000000000000000000000000000001",
+            "&PULL_MODE=UP": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "O": "output",
+            "I": "input"
+          },
+          "connections": {
+            "O": [ 7712 ],
+            "I": [ 7708 ]
+          }
+        }
+      },
+      "netnames": {
+        "counter_DFFR_Q_13$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7962 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/F1;;1;X3Y7/XD1;X3Y7/XD1/F1;1"
+          }
+        },
+        "counter_DFFR_Q_16$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7960 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/F3;;1;X3Y7/XD3;X3Y7/XD3/F3;1"
+          }
+        },
+        "counter_DFFR_Q_17$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7958 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/F5;;1;X3Y7/XD5;X3Y7/XD5/F5;1"
+          }
+        },
+        "counter_DFFR_Q_23$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7956 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F3;;1;X2Y7/XD3;X2Y7/XD3/F3;1"
+          }
+        },
+        "counter_DFFR_Q_3$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7954 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F4;;1;X2Y7/XD4;X2Y7/XD4/F4;1"
+          }
+        },
+        "counter_DFFR_Q_4$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7952 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/F1;;1;X1Y7/XD1;X1Y7/XD1/F1;1"
+          }
+        },
+        "counter_DFFR_Q_5$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7950 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/F4;;1;X1Y7/XD4;X1Y7/XD4/F4;1"
+          }
+        },
+        "counter_DFFR_Q_6$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7948 ] ,
+          "attributes": {
+            "ROUTING": "X5Y8/F2;;1;X5Y8/XD2;X5Y8/XD2/F2;1"
+          }
+        },
+        "counter_DFFR_Q_9$conn$D": {
+          "hide_name": 0,
+          "bits": [ 7946 ] ,
+          "attributes": {
+            "ROUTING": "X4Y7/F2;;1;X4Y7/XD2;X4Y7/XD2/F2;1"
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_CIN_ALU_COUT_HEAD_ALULC": {
+          "hide_name": 0,
+          "bits": [ 7906 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/COUT0;;1"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_S0[4]": {
+          "hide_name": 0,
+          "bits": [ 7879 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F7;;1;X2Y8/N270;X2Y8/N270/F7;1;X2Y7/X06;X2Y7/X06/N271;1;X2Y7/SEL0;X2Y7/SEL0/X06;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_I1": {
+          "hide_name": 0,
+          "bits": [ 7878 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F1;;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:151.13-151.15"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_1_I0": {
+          "hide_name": 0,
+          "bits": [ 7877 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F0;;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:151.9-151.11"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_S0[4]": {
+          "hide_name": 0,
+          "bits": [ 7875 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/F0;;1;X1Y7/E130;X1Y7/E130/F0;1;X1Y7/E260;X1Y7/E260/E130;1;X2Y7/SEL6;X2Y7/SEL6/E261;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_I1": {
+          "hide_name": 0,
+          "bits": [ 7874 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F7;;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:151.13-151.15"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3_MUX2_LUT5_O_I0": {
+          "hide_name": 0,
+          "bits": [ 7873 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/F6;;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:151.9-151.11"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3[3]": {
+          "hide_name": 0,
+          "bits": [ 7869 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/OF6;;1;X2Y7/E260;X2Y7/E260/OF6;1;X3Y7/X03;X3Y7/X03/E261;1;X3Y7/D0;X3Y7/D0/X03;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3[2]": {
+          "hide_name": 0,
+          "bits": [ 7868 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/OF0;;1;X2Y7/E200;X2Y7/E200/OF0;1;X3Y7/X01;X3Y7/X01/E201;1;X3Y7/C0;X3Y7/C0/X01;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3[1]": {
+          "hide_name": 0,
+          "bits": [ 7867 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F6;;1;X3Y8/N130;X3Y8/N130/F6;1;X3Y7/B0;X3Y7/B0/N131;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_CE_LUT4_F_I3[0]": {
+          "hide_name": 0,
+          "bits": [ 7866 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F6;;1;X4Y8/N130;X4Y8/N130/F6;1;X4Y7/W270;X4Y7/W270/N131;1;X3Y7/A0;X3Y7/A0/W271;1",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21",
+            "force_downto": "00000000000000000000000000000001"
+          }
+        },
+        "state_DFFE_Q_D": {
+          "hide_name": 0,
+          "bits": [ 7864 ] ,
+          "attributes": {
+            "ROUTING": "X3Y10/F0;;1;X3Y10/XD0;X3Y10/XD0/F0;1"
+          }
+        },
+        "led[0]": {
+          "hide_name": 0,
+          "bits": [ 7862 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "led[1]": {
+          "hide_name": 0,
+          "bits": [ 7860 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "led[2]": {
+          "hide_name": 0,
+          "bits": [ 7858 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "led[3]": {
+          "hide_name": 0,
+          "bits": [ 7856 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "led[4]": {
+          "hide_name": 0,
+          "bits": [ 7854 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "led[5]": {
+          "hide_name": 0,
+          "bits": [ 7852 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:3.23-3.26"
+          }
+        },
+        "state": {
+          "hide_name": 0,
+          "bits": [ 7851 ] ,
+          "attributes": {
+            "ROUTING": "X3Y10/X01;X3Y10/X01/Q0;1;X3Y10/A0;X3Y10/A0/X01;1;X0Y24/D1;X0Y24/D1/S202;1;X0Y14/S230;X0Y14/S230/E231;1;X0Y15/X08;X0Y15/X08/S231;1;X0Y15/D1;X0Y15/D1/X08;1;X0Y20/D1;X0Y20/D1/S202;1;X0Y22/S200;X0Y22/S200/S202;1;X0Y24/S200;X0Y24/S200/S202;1;X0Y25/D1;X0Y25/D1/S201;1;X0Y14/W230;X0Y14/W230/S804;1;X0Y14/X02;X0Y14/X02/E231;1;X0Y14/A0;X0Y14/A0/X02;1;X3Y10/Q0;;1;X3Y10/W800;X3Y10/W800/Q0;1;X0Y10/S800;X0Y10/S800/E804;1;X0Y18/S200;X0Y18/S200/S808;1;X0Y20/S200;X0Y20/S200/S202;1;X0Y21/D1;X0Y21/D1/S201;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:7.16-7.21"
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_CIN_ALU_COUT_SUM": {
+          "hide_name": 0,
+          "bits": [ 7849 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_CIN": {
+          "hide_name": 0,
+          "bits": [ 7847 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/COUT1;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[20]": {
+          "hide_name": 0,
+          "bits": [ 7842 ] ,
+          "attributes": {
+            "ROUTING": "X4Y7/SN10;X4Y7/SN10/Q2;1;X4Y8/B3;X4Y8/B3/S111;1;X4Y7/Q2;;1;X4Y7/SN20;X4Y7/SN20/Q2;1;X4Y8/W220;X4Y8/W220/S121;1;X3Y8/D6;X3Y8/D6/W221;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_9_D": {
+          "hide_name": 0,
+          "bits": [ 7841 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F3;;1;X4Y8/N100;X4Y8/N100/F3;1;X4Y7/D2;X4Y7/D2/N101;1"
+          }
+        },
+        "counter_DFFR_Q_9_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7839 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/COUT3;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[21]": {
+          "hide_name": 0,
+          "bits": [ 7837 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/B4;X4Y8/B4/W100;1;X4Y8/Q4;;1;X4Y8/W100;X4Y8/W100/Q4;1;X3Y8/C6;X3Y8/C6/W101;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_8_D": {
+          "hide_name": 0,
+          "bits": [ 7836 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F4;;1;X4Y8/XD4;X4Y8/XD4/F4;1"
+          }
+        },
+        "counter_DFFR_Q_8_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7834 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/COUT4;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[22]": {
+          "hide_name": 0,
+          "bits": [ 7832 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/X08;X4Y8/X08/Q5;1;X4Y8/B5;X4Y8/B5/X08;1;X4Y8/Q5;;1;X4Y8/EW10;X4Y8/EW10/Q5;1;X3Y8/B6;X3Y8/B6/W111;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_7_D": {
+          "hide_name": 0,
+          "bits": [ 7831 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F5;;1;X4Y8/XD5;X4Y8/XD5/F5;1"
+          }
+        },
+        "counter_DFFR_Q_6_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7829 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter_DFFR_Q_7_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7828 ] ,
+          "attributes": {
+            "ROUTING": "X5Y8/CIN0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[23]": {
+          "hide_name": 0,
+          "bits": [ 7826 ] ,
+          "attributes": {
+            "ROUTING": "X5Y8/S100;X5Y8/S100/Q2;1;X5Y8/B0;X5Y8/B0/S100;1;X5Y8/Q2;;1;X5Y8/W220;X5Y8/W220/Q2;1;X3Y8/X01;X3Y8/X01/W222;1;X3Y8/A6;X3Y8/A6/X01;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_6_D": {
+          "hide_name": 0,
+          "bits": [ 7825 ] ,
+          "attributes": {
+            "ROUTING": "X5Y8/F0;;1;X5Y8/D2;X5Y8/D2/F0;1"
+          }
+        },
+        "counter[3]": {
+          "hide_name": 0,
+          "bits": [ 7822 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/X03;X1Y7/X03/Q4;1;X1Y7/A0;X1Y7/A0/X03;1;X1Y7/Q4;;1;X1Y7/SN20;X1Y7/SN20/Q4;1;X1Y8/B4;X1Y8/B4/S121;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_5_D": {
+          "hide_name": 0,
+          "bits": [ 7821 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/F4;;1;X1Y8/N130;X1Y8/N130/F4;1;X1Y7/D4;X1Y7/D4/N131;1"
+          }
+        },
+        "counter_DFFR_Q_4_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7819 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/COUT3;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter_DFFR_Q_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7818 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/COUT2;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[2]": {
+          "hide_name": 0,
+          "bits": [ 7816 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/S100;X1Y7/S100/Q1;1;X1Y7/B0;X1Y7/B0/S100;1;X1Y7/Q1;;1;X1Y7/S210;X1Y7/S210/Q1;1;X1Y8/B3;X1Y8/B3/S211;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_4_D": {
+          "hide_name": 0,
+          "bits": [ 7815 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/F3;;1;X1Y8/N100;X1Y8/N100/F3;1;X1Y7/D1;X1Y7/D1/N101;1"
+          }
+        },
+        "counter[5]": {
+          "hide_name": 0,
+          "bits": [ 7812 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/N130;X2Y7/N130/Q4;1;X2Y7/C7;X2Y7/C7/N130;1;X2Y7/Q4;;1;X2Y7/SN10;X2Y7/SN10/Q4;1;X2Y8/B0;X2Y8/B0/S111;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_3_D": {
+          "hide_name": 0,
+          "bits": [ 7810 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F0;;1;X2Y8/N200;X2Y8/N200/F0;1;X2Y7/X07;X2Y7/X07/N201;1;X2Y7/D4;X2Y7/D4/X07;1"
+          }
+        },
+        "counter_DFFR_Q_3_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7807 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/COUT0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[6]": {
+          "hide_name": 0,
+          "bits": [ 7805 ] ,
+          "attributes": {
+            "ROUTING": "X2Y7/W130;X2Y7/W130/Q3;1;X2Y7/B7;X2Y7/B7/W130;1;X2Y7/Q3;;1;X2Y7/S230;X2Y7/S230/Q3;1;X2Y8/B1;X2Y8/B1/S231;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_23_D": {
+          "hide_name": 0,
+          "bits": [ 7803 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F1;;1;X2Y8/N100;X2Y8/N100/F1;1;X2Y7/D3;X2Y7/D3/N101;1"
+          }
+        },
+        "counter_DFFR_Q_23_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7801 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/COUT1;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[7]": {
+          "hide_name": 0,
+          "bits": [ 7799 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/X01;X2Y8/X01/Q2;1;X2Y8/B2;X2Y8/B2/X01;1;X2Y8/Q2;;1;X2Y8/SN20;X2Y8/SN20/Q2;1;X2Y7/A7;X2Y7/A7/N121;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_22_D": {
+          "hide_name": 0,
+          "bits": [ 7797 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F2;;1;X2Y8/XD2;X2Y8/XD2/F2;1"
+          }
+        },
+        "counter_DFFR_Q_22_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7795 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/COUT2;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[8]": {
+          "hide_name": 0,
+          "bits": [ 7793 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/X02;X2Y8/X02/Q3;1;X2Y8/D7;X2Y8/D7/X02;1;X2Y8/Q3;;1;X2Y8/B3;X2Y8/B3/Q3;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_21_D": {
+          "hide_name": 0,
+          "bits": [ 7792 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F3;;1;X2Y8/XD3;X2Y8/XD3/F3;1"
+          }
+        },
+        "counter_DFFR_Q_21_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7790 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/COUT3;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[9]": {
+          "hide_name": 0,
+          "bits": [ 7788 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/N130;X2Y8/N130/Q4;1;X2Y8/C7;X2Y8/C7/N130;1;X2Y8/Q4;;1;X2Y8/X03;X2Y8/X03/Q4;1;X2Y8/B4;X2Y8/B4/X03;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_20_D": {
+          "hide_name": 0,
+          "bits": [ 7787 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F4;;1;X2Y8/XD4;X2Y8/XD4/F4;1"
+          }
+        },
+        "counter[0]": {
+          "hide_name": 0,
+          "bits": [ 7785 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/N130;X1Y7/N130/Q2;1;X1Y7/A2;X1Y7/A2/N130;1;X1Y7/W100;X1Y7/W100/Q2;1;X1Y7/D0;X1Y7/D0/W100;1;X1Y7/Q2;;1;X1Y7/SN10;X1Y7/SN10/Q2;1;X1Y8/B1;X1Y8/B1/S111;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_2_D": {
+          "hide_name": 0,
+          "bits": [ 7784 ] ,
+          "attributes": {
+            "ROUTING": "X1Y7/F2;;1;X1Y7/XD2;X1Y7/XD2/F2;1"
+          }
+        },
+        "counter_DFFR_Q_1_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7782 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/CIN0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter_DFFR_Q_5_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7781 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/COUT4;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter_DFFR_Q_20_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7779 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/COUT4;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[10]": {
+          "hide_name": 0,
+          "bits": [ 7777 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/B7;X2Y8/B7/X08;1;X2Y8/Q5;;1;X2Y8/X08;X2Y8/X08/Q5;1;X2Y8/B5;X2Y8/B5/X08;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_19_D": {
+          "hide_name": 0,
+          "bits": [ 7776 ] ,
+          "attributes": {
+            "ROUTING": "X2Y8/F5;;1;X2Y8/XD5;X2Y8/XD5/F5;1"
+          }
+        },
+        "counter_DFFR_Q_19_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7774 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/CIN0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[11]": {
+          "hide_name": 0,
+          "bits": [ 7772 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/X05;X3Y8/X05/Q0;1;X3Y8/B0;X3Y8/B0/X05;1;X3Y8/Q0;;1;X3Y8/W130;X3Y8/W130/Q0;1;X2Y8/A7;X2Y8/A7/W131;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_18_D": {
+          "hide_name": 0,
+          "bits": [ 7771 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F0;;1;X3Y8/XD0;X3Y8/XD0/F0;1"
+          }
+        },
+        "counter_DFFR_Q_18_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7769 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/COUT0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[12]": {
+          "hide_name": 0,
+          "bits": [ 7767 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/EW20;X3Y7/EW20/Q5;1;X2Y7/D1;X2Y7/D1/W121;1;X3Y7/Q5;;1;X3Y7/SN10;X3Y7/SN10/Q5;1;X3Y8/B1;X3Y8/B1/S111;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_17_D": {
+          "hide_name": 0,
+          "bits": [ 7765 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F1;;1;X3Y8/SN20;X3Y8/SN20/F1;1;X3Y7/N260;X3Y7/N260/N121;1;X3Y7/D5;X3Y7/D5/N260;1"
+          }
+        },
+        "counter_DFFR_Q_17_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7763 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/COUT1;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[13]": {
+          "hide_name": 0,
+          "bits": [ 7761 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/S230;X3Y7/S230/Q3;1;X3Y8/B2;X3Y8/B2/S231;1;X3Y7/Q3;;1;X3Y7/W100;X3Y7/W100/Q3;1;X2Y7/C1;X2Y7/C1/W101;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_16_D": {
+          "hide_name": 0,
+          "bits": [ 7759 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F2;;1;X3Y8/N220;X3Y8/N220/F2;1;X3Y7/D3;X3Y7/D3/N221;1"
+          }
+        },
+        "counter_DFFR_Q_16_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7757 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/COUT2;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[14]": {
+          "hide_name": 0,
+          "bits": [ 7755 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/B3;X3Y8/B3/Q3;1;X3Y8/Q3;;1;X3Y8/SN10;X3Y8/SN10/Q3;1;X3Y7/W210;X3Y7/W210/N111;1;X2Y7/B1;X2Y7/B1/W211;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_15_D": {
+          "hide_name": 0,
+          "bits": [ 7753 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F3;;1;X3Y8/XD3;X3Y8/XD3/F3;1"
+          }
+        },
+        "counter_DFFR_Q_15_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7751 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/COUT3;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[15]": {
+          "hide_name": 0,
+          "bits": [ 7749 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/X03;X3Y8/X03/Q4;1;X3Y8/B4;X3Y8/B4/X03;1;X3Y8/Q4;;1;X3Y8/EW10;X3Y8/EW10/Q4;1;X2Y8/N250;X2Y8/N250/W111;1;X2Y7/A1;X2Y7/A1/N251;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_14_D": {
+          "hide_name": 0,
+          "bits": [ 7747 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F4;;1;X3Y8/XD4;X3Y8/XD4/F4;1"
+          }
+        },
+        "counter_DFFR_Q_14_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7745 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/COUT4;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[16]": {
+          "hide_name": 0,
+          "bits": [ 7743 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/SN20;X3Y7/SN20/Q1;1;X3Y8/B5;X3Y8/B5/S121;1;X3Y7/Q1;;1;X3Y7/E100;X3Y7/E100/Q1;1;X4Y7/S240;X4Y7/S240/E101;1;X4Y8/D6;X4Y8/D6/S241;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_13_D": {
+          "hide_name": 0,
+          "bits": [ 7742 ] ,
+          "attributes": {
+            "ROUTING": "X3Y8/F5;;1;X3Y8/N100;X3Y8/N100/F5;1;X3Y7/D1;X3Y7/D1/N101;1"
+          }
+        },
+        "counter_DFFR_Q_13_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7740 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/CIN0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[17]": {
+          "hide_name": 0,
+          "bits": [ 7738 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/B0;X4Y8/B0/X05;1;X4Y8/Q0;;1;X4Y8/X05;X4Y8/X05/Q0;1;X4Y8/C6;X4Y8/C6/X05;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_12_D": {
+          "hide_name": 0,
+          "bits": [ 7737 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F0;;1;X4Y8/XD0;X4Y8/XD0/F0;1"
+          }
+        },
+        "counter_DFFR_Q_12_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7735 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/COUT0;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[18]": {
+          "hide_name": 0,
+          "bits": [ 7733 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/B1;X4Y8/B1/Q1;1;X4Y8/Q1;;1;X4Y8/W130;X4Y8/W130/Q1;1;X4Y8/B6;X4Y8/B6/W130;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_11_D": {
+          "hide_name": 0,
+          "bits": [ 7732 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F1;;1;X4Y8/XD1;X4Y8/XD1/F1;1"
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "bits": [ 7902 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "bits": [ 7901 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/C3;X4Y8/C3/S261;1;X4Y7/S260;X4Y7/S260/VCC;1;X4Y8/C0;X4Y8/C0/X04;1;X4Y8/X04;X4Y8/X04/VCC;1;X3Y8/C4;X3Y8/C4/S222;1;X3Y6/S220;X3Y6/S220/VCC;1;X3Y6/VCC;;1;X1Y8/C1;X1Y8/C1/N241;1;X1Y9/N240;X1Y9/N240/VCC;1;X2Y8/C2;X2Y8/C2/S242;1;X2Y6/S240;X2Y6/S240/VCC;1;X2Y6/VCC;;1;X4Y8/C5;X4Y8/C5/S201;1;X4Y7/S200;X4Y7/S200/VCC;1;X4Y7/VCC;;1;X1Y8/C2;X1Y8/C2/N262;1;X1Y10/N260;X1Y10/N260/VCC;1;X1Y10/VCC;;1;X1Y8/C5;X1Y8/C5/S222;1;X1Y6/S220;X1Y6/S220/VCC;1;X1Y6/VCC;;1;X0Y0/C4;X0Y0/C4/W242;1;X2Y0/W240;X2Y0/W240/VCC;1;X2Y0/VCC;;1;X3Y8/C5;X3Y8/C5/N202;1;X3Y10/N200;X3Y10/N200/VCC;1;X3Y10/VCC;;1;X3Y8/C2;X3Y8/C2/S261;1;X3Y7/S260;X3Y7/S260/VCC;1;X3Y7/VCC;;1;X5Y8/C0;X5Y8/C0/W241;1;X6Y8/W240;X6Y8/W240/VCC;1;X6Y8/VCC;;1;X4Y8/C2;X4Y8/C2/N262;1;X4Y10/N260;X4Y10/N260/VCC;1;X4Y10/VCC;;1;X3Y8/C3;X3Y8/C3/W262;1;X5Y8/W260;X5Y8/W260/VCC;1;X5Y8/VCC;;1;X3Y8/C0;X3Y8/C0/N261;1;X3Y9/N260;X3Y9/N260/VCC;1;X3Y9/VCC;;1;X1Y8/C4;X1Y8/C4/S221;1;X1Y7/S220;X1Y7/S220/VCC;1;X1Y7/VCC;;1;X4Y8/C1;X4Y8/C1/N261;1;X4Y9/N260;X4Y9/N260/VCC;1;X4Y9/VCC;;1;X2Y8/C5;X2Y8/C5/E262;1;X0Y8/E260;X0Y8/E260/VCC;1;X0Y8/VCC;;1;X2Y8/C1;X2Y8/C1/N261;1;X2Y9/N260;X2Y9/N260/VCC;1;X2Y9/VCC;;1;X3Y8/C1;X3Y8/C1/X04;1;X3Y8/X04;X3Y8/X04/VCC;1;X3Y8/VCC;;1;X4Y8/C4;X4Y8/C4/S222;1;X4Y6/S220;X4Y6/S220/VCC;1;X4Y6/VCC;;1;X1Y8/C3;X1Y8/C3/N261;1;X1Y9/N260;X1Y9/N260/VCC;1;X1Y9/VCC;;1;X2Y8/C4;X2Y8/C4/S221;1;X2Y7/S220;X2Y7/S220/VCC;1;X2Y7/VCC;;1;X2Y8/C0;X2Y8/C0/W262;1;X4Y8/W260;X4Y8/W260/VCC;1;X4Y8/VCC;;1;X2Y8/C3;X2Y8/C3/X04;1;X2Y8/X04;X2Y8/X04/VCC;1;X2Y8/VCC;;1;X1Y8/C0;X1Y8/C0/X04;1;X1Y8/X04;X1Y8/X04/VCC;1;X1Y8/VCC;;1"
+          }
+        },
+        "counter_DFFR_Q_10_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7728 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/COUT2;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter_DFFR_Q_11_D_ALU_SUM_COUT": {
+          "hide_name": 0,
+          "bits": [ 7727 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/COUT1;;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:14.24-14.38|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/arith_map.v:57.7-63.5|/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_sim.v:1033.25-1033.29",
+            "abc9_carry": "00000000000000000000000000000001"
+          }
+        },
+        "counter[19]": {
+          "hide_name": 0,
+          "bits": [ 7725 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/B2;X4Y8/B2/X01;1;X4Y8/Q2;;1;X4Y8/X01;X4Y8/X01/Q2;1;X4Y8/A6;X4Y8/A6/X01;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_10_D": {
+          "hide_name": 0,
+          "bits": [ 7724 ] ,
+          "attributes": {
+            "ROUTING": "X4Y8/F2;;1;X4Y8/XD2;X4Y8/XD2/F2;1"
+          }
+        },
+        "counter[4]": {
+          "hide_name": 0,
+          "bits": [ 7722 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/X08;X1Y8/X08/Q5;1;X1Y8/B5;X1Y8/B5/X08;1;X1Y8/Q5;;1;X1Y8/SN20;X1Y8/SN20/Q5;1;X1Y7/E220;X1Y7/E220/N121;1;X2Y7/D7;X2Y7/D7/E221;1",
+            "force_downto": "00000000000000000000000000000001",
+            "src": "/home/seso/Resources/oss-cad-suite/lib/../share/yosys/gowin/cells_map.v:130.20-130.21"
+          }
+        },
+        "counter_DFFR_Q_1_D": {
+          "hide_name": 0,
+          "bits": [ 7720 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/F5;;1;X1Y8/XD5;X1Y8/XD5/F5;1"
+          }
+        },
+        "state_DFFE_Q_CE": {
+          "hide_name": 0,
+          "bits": [ 7717 ] ,
+          "attributes": {
+            "ROUTING": "X3Y7/LSR0;X3Y7/LSR0/X05;1;X3Y7/LSR2;X3Y7/LSR2/X05;1;X3Y7/X05;X3Y7/X05/F0;1;X3Y7/LSR1;X3Y7/LSR1/X05;1;X3Y8/LSR2;X3Y8/LSR2/X07;1;X2Y7/LSR1;X2Y7/LSR1/X05;1;X3Y8/LSR0;X3Y8/LSR0/X07;1;X2Y7/X05;X2Y7/X05/W201;1;X2Y7/LSR2;X2Y7/LSR2/X05;1;X3Y8/X07;X3Y8/X07/S201;1;X3Y8/LSR1;X3Y8/LSR1/X07;1;X3Y7/E200;X3Y7/E200/F0;1;X4Y7/X05;X4Y7/X05/E201;1;X4Y7/LSR1;X4Y7/LSR1/X05;1;X4Y8/LSR0;X4Y8/LSR0/S271;1;X4Y8/LSR2;X4Y8/LSR2/S271;1;X2Y8/LSR2;X2Y8/LSR2/S271;1;X3Y7/E130;X3Y7/E130/F0;1;X4Y7/S270;X4Y7/S270/E131;1;X4Y8/LSR1;X4Y8/LSR1/S271;1;X3Y7/W130;X3Y7/W130/F0;1;X2Y7/S270;X2Y7/S270/W131;1;X2Y8/LSR1;X2Y8/LSR1/S271;1;X1Y7/LSR2;X1Y7/LSR2/X05;1;X1Y7/LSR1;X1Y7/LSR1/X05;1;X3Y7/W200;X3Y7/W200/F0;1;X1Y7/X05;X1Y7/X05/W202;1;X1Y7/LSR0;X1Y7/LSR0/X05;1;X3Y8/E200;X3Y8/E200/S101;1;X5Y8/X05;X5Y8/X05/E202;1;X5Y8/LSR1;X5Y8/LSR1/X05;1;X1Y8/LSR2;X1Y8/LSR2/X05;1;X3Y7/S100;X3Y7/S100/F0;1;X3Y8/W200;X3Y8/W200/S101;1;X1Y8/X05;X1Y8/X05/W202;1;X1Y8/LSR1;X1Y8/LSR1/X05;1;X3Y7/F0;;1;X3Y7/S200;X3Y7/S200/F0;1;X3Y9/S210;X3Y9/S210/S202;1;X3Y10/CE0;X3Y10/CE0/S211;1"
+          }
+        },
+        "counter[1]": {
+          "hide_name": 0,
+          "bits": [ 7716 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/N220;X1Y8/N220/Q2;1;X1Y7/X01;X1Y7/X01/N221;1;X1Y7/C0;X1Y7/C0/X01;1;X1Y8/Q2;;1;X1Y8/X01;X1Y8/X01/Q2;1;X1Y8/B2;X1Y8/B2/X01;1",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:6.16-6.23"
+          }
+        },
+        "counter_DFFR_Q_D": {
+          "hide_name": 0,
+          "bits": [ 7715 ] ,
+          "attributes": {
+            "ROUTING": "X1Y8/F2;;1;X1Y8/XD2;X1Y8/XD2/F2;1"
+          }
+        },
+        "clk_IBUF_I_O": {
+          "hide_name": 0,
+          "bits": [ 7712 ] ,
+          "attributes": {
+            "ROUTING": "X11Y19/SPINE16;X27Y9/SPINE16/PCLKR1;5;X3Y15/GT00;X3Y19/GT00/SPINE16;5;X2Y10/GB00;X3Y10/GBO0/GT00;5;X3Y10/CLK0;X3Y10/CLK0/GB00;5;X4Y7/CLK1;X4Y7/CLK1/GB00;5;X4Y8/CLK2;X4Y8/CLK2/GB00;5;X5Y8/CLK1;X5Y8/CLK1/GB00;5;X1Y7/CLK2;X1Y7/CLK2/GB00;5;X1Y7/CLK0;X1Y7/CLK0/GB00;5;X2Y7/CLK2;X2Y7/CLK2/GB00;5;X2Y7/CLK1;X2Y7/CLK1/GB00;5;X2Y8/CLK1;X2Y8/CLK1/GB00;5;X1Y7/CLK1;X1Y7/CLK1/GB00;5;X2Y8/CLK2;X2Y8/CLK2/GB00;5;X3Y8/CLK0;X3Y8/CLK0/GB00;5;X3Y7/CLK2;X3Y7/CLK2/GB00;5;X3Y7/CLK1;X3Y7/CLK1/GB00;5;X3Y8/CLK1;X3Y8/CLK1/GB00;5;X3Y8/CLK2;X3Y8/CLK2/GB00;5;X2Y7/GB00;X3Y7/GBO0/GT00;5;X3Y7/CLK0;X3Y7/CLK0/GB00;5;X4Y8/CLK0;X4Y8/CLK0/GB00;5;X4Y8/CLK1;X4Y8/CLK1/GB00;5;X1Y8/CLK2;X1Y8/CLK2/GB00;5;X23Y1/SPINE8;X26Y9/SPINE8/PCLKR1;5;X3Y5/GT00;X3Y1/GT00/SPINE8;5;X3Y8/GBO0;X3Y8/GBO0/GT00;5;X1Y8/CLK1;X1Y8/CLK1/GB00;5;X46Y16/F6;;5"
+          }
+        },
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 7708 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "src": "/home/seso/Github_Projects/FPGA_comunication_checker/top.v:2.23-2.26"
+          }
+        }
+      }
+    }
+  }
+}
