@@ -15,6 +15,9 @@ module top #(
     input  wire        btn1,       // active low, pin 3
     input  wire        btn2,       // active low, pin 4
 
+    input  wire       uart_rx,    // from host (USB-serial TXD), pin 18
+    output wire       uart_tx,    // to host (USB-serial RXD), pin 17
+
     output reg        lcd_rst = 1'b0,
     output reg        lcd_dc  = 1'b0,
     output wire       lcd_cs,
@@ -80,6 +83,138 @@ module top #(
     always @(posedge clk) begin
         b1_prev <= b1_clean;
         b2_prev <= b2_clean;
+    end
+
+    // ---- UART: send "Hello from FPGA\r\n" once a second, and echo
+    //      back whatever the host sends, showing it on the LEDs ----
+    wire       uart_tx_busy;
+    reg        uart_tx_start = 1'b0;
+    reg  [7:0] uart_tx_data  = 8'h00;
+    wire [7:0] uart_rx_data;
+    wire       uart_rx_valid;
+
+    uart_tx tx_unit (
+        .clk   (clk),
+        .start (uart_tx_start),
+        .data  (uart_tx_data),
+        .tx    (uart_tx),
+        .busy  (uart_tx_busy)
+    );
+
+    uart_rx rx_unit (
+        .clk   (clk),
+        .rx    (uart_rx),
+        .data  (uart_rx_data),
+        .valid (uart_rx_valid)
+    );
+
+    // low 6 bits of the last byte received, shown on the LEDs
+    reg [7:0] rx_byte_latch = 8'h00;
+    always @(posedge clk) begin
+        if (uart_rx_valid) rx_byte_latch <= uart_rx_data;
+    end
+
+    // "Hello from FPGA\r\n" - 17 bytes, sent once per second
+    localparam MSG_LAST = 5'd16;
+
+    function [7:0] msg_lookup(input [4:0] addr);
+        case (addr)
+            5'd0  : msg_lookup = 8'h48;   // H
+            5'd1  : msg_lookup = 8'h65;   // e
+            5'd2  : msg_lookup = 8'h6C;   // l
+            5'd3  : msg_lookup = 8'h6C;   // l
+            5'd4  : msg_lookup = 8'h6F;   // o
+            5'd5  : msg_lookup = 8'h20;   // ' '
+            5'd6  : msg_lookup = 8'h66;   // f
+            5'd7  : msg_lookup = 8'h72;   // r
+            5'd8  : msg_lookup = 8'h6F;   // o
+            5'd9  : msg_lookup = 8'h6D;   // m
+            5'd10 : msg_lookup = 8'h20;   // ' '
+            5'd11 : msg_lookup = 8'h46;   // F
+            5'd12 : msg_lookup = 8'h50;   // P
+            5'd13 : msg_lookup = 8'h47;   // G
+            5'd14 : msg_lookup = 8'h41;   // A
+            5'd15 : msg_lookup = 8'h0D;   // \r
+            5'd16 : msg_lookup = 8'h0A;   // \n
+            default: msg_lookup = 8'h00;
+        endcase
+    endfunction
+
+    // once-a-second tick - reuses CYCLES_PER_MS so simulation can shrink it too
+    reg [24:0] sec_cnt  = 25'd0;
+    reg        sec_tick = 1'b0;
+
+    always @(posedge clk) begin
+        sec_tick <= 1'b0;
+        if (sec_cnt == (CYCLES_PER_MS * 1000) - 1'b1) begin
+            sec_cnt  <= 25'd0;
+            sec_tick <= 1'b1;
+        end else begin
+            sec_cnt <= sec_cnt + 1'b1;
+        end
+    end
+
+    // single arbiter owns the one physical TX line: echo takes priority
+    // over the housekeeping message, since it's a direct response to the host
+    localparam TX_IDLE      = 2'd0,
+               TX_HELLO     = 2'd1,
+               TX_HELLO_WAIT= 2'd2,
+               TX_ECHO_WAIT = 2'd3;
+
+    reg [1:0] tx_state     = TX_IDLE;
+    reg [4:0] msg_addr     = 5'd0;
+    reg       hello_pending= 1'b0;
+    reg       echo_pending = 1'b0;
+    reg [7:0] echo_byte    = 8'h00;
+
+    always @(posedge clk) begin
+        uart_tx_start <= 1'b0;
+
+        case (tx_state)
+        TX_IDLE: begin
+            if (echo_pending) begin
+                uart_tx_data  <= echo_byte;
+                uart_tx_start <= 1'b1;
+                echo_pending  <= 1'b0;
+                tx_state      <= TX_ECHO_WAIT;
+            end else if (hello_pending) begin
+                msg_addr <= 5'd0;
+                tx_state <= TX_HELLO;
+            end
+        end
+
+        TX_HELLO: begin
+            uart_tx_data  <= msg_lookup(msg_addr);
+            uart_tx_start <= 1'b1;
+            tx_state      <= TX_HELLO_WAIT;
+        end
+
+        TX_HELLO_WAIT: begin
+            if (!uart_tx_busy) begin
+                if (msg_addr == MSG_LAST) begin
+                    hello_pending <= 1'b0;
+                    tx_state      <= TX_IDLE;
+                end else begin
+                    msg_addr <= msg_addr + 1'b1;
+                    tx_state <= TX_HELLO;
+                end
+            end
+        end
+
+        TX_ECHO_WAIT: begin
+            if (!uart_tx_busy) tx_state <= TX_IDLE;
+        end
+
+        default: tx_state <= TX_IDLE;
+        endcase
+
+        // a fresh request always wins over a same-cycle "done" clear above,
+        // so a byte that lands exactly as one job finishes is never dropped
+        if (sec_tick) hello_pending <= 1'b1;
+        if (uart_rx_valid) begin
+            echo_byte    <= uart_rx_data;
+            echo_pending <= 1'b1;
+        end
     end
 
     // ---- SPI byte sender -----------------------------------
@@ -450,8 +585,8 @@ module top #(
         endcase
     end
 
-    // LEDs mirror the debounced button state (active low), just for debug
-    assign led = ~{4'b0000, b2_clean, b1_clean};
+    // LEDs show the low 6 bits of the last byte received over UART (active low)
+    assign led = ~rx_byte_latch[5:0];
 
 endmodule
 
