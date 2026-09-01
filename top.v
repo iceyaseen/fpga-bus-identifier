@@ -9,7 +9,8 @@
 
 module top #(
     parameter CYCLES_PER_MS = 27000,    // override in simulation to speed up delays
-    parameter NUM_CHANNELS  = 2         // probe channel count - bump this (and the .cst) for more
+    parameter NUM_CHANNELS  = 2,        // probe channel count - bump this (and the .cst) for more
+    parameter FIFO_DEPTH    = 128       // must be a power of 2 - see fifo.v
 ) (
     input  wire       clk,        // 27 MHz, pin 52
 
@@ -88,8 +89,8 @@ module top #(
         b2_prev <= b2_clean;
     end
 
-    // ---- UART: send "Hello from FPGA\r\n" once a second, and echo
-    //      back whatever the host sends, showing it on the LEDs ----
+    // ---- UART: framed protocol only - no housekeeping text, no byte
+    //      echo. Commands get a real ACK/ERROR/status reply instead ----
     wire       uart_tx_busy;
     reg        uart_tx_start = 1'b0;
     reg  [7:0] uart_tx_data  = 8'h00;
@@ -163,22 +164,32 @@ module top #(
     assign probe_in = probe;
 `endif
 
-    // 'S'/'X'/'R'/'V' commands from the host, decoded alongside the
-    // existing byte echo above (both just watch uart_rx_valid)
+    // 'S'/'X'/'R'/'V' commands from the host. Any other byte is
+    // unrecognised and gets a real ERROR reply, not a silent drop or
+    // an echo of the byte back.
     reg capture_en = 1'b0;
     reg ts_reset   = 1'b0;   // one-cycle pulse: zeroes the timestamp counter + clears FIFO overflow
     reg status_req = 1'b0;   // one-cycle pulse: latch+queue a 'V' status reply
+    reg ack_req    = 1'b0;   // one-cycle pulse: latch+queue an ACK for S/X/R
+    reg [7:0] ack_cmd = 8'h00;
+    reg err_req       = 1'b0;   // one-cycle pulse: latch+queue an ERROR reply
+    reg [7:0] err_bad_byte = 8'h00;
 
     always @(posedge clk) begin
         ts_reset   <= 1'b0;
         status_req <= 1'b0;
+        ack_req    <= 1'b0;
+        err_req    <= 1'b0;
         if (uart_rx_valid) begin
             case (uart_rx_data)
-                8'h53: capture_en <= 1'b1;   // 'S'
-                8'h58: capture_en <= 1'b0;   // 'X'
-                8'h52: ts_reset   <= 1'b1;   // 'R'
-                8'h56: status_req <= 1'b1;   // 'V'
-                default: ;
+                8'h53: begin capture_en <= 1'b1; ack_req <= 1'b1; ack_cmd <= uart_rx_data; end   // 'S'
+                8'h58: begin capture_en <= 1'b0; ack_req <= 1'b1; ack_cmd <= uart_rx_data; end   // 'X'
+                8'h52: begin ts_reset   <= 1'b1; ack_req <= 1'b1; ack_cmd <= uart_rx_data; end   // 'R'
+                8'h56: status_req <= 1'b1;                                                       // 'V'
+                default: begin
+                    err_req      <= 1'b1;
+                    err_bad_byte <= uart_rx_data;
+                end
             endcase
         end
     end
@@ -192,23 +203,23 @@ module top #(
     // below easy to miss. The arbiter's actual always block (the logic
     // that drives these regs) still lives further down, where it reads
     // naturally alongside the states it walks through.
-    localparam TX_IDLE      = 3'd0,
-               TX_HELLO     = 3'd1,
-               TX_HELLO_WAIT= 3'd2,
-               TX_ECHO_WAIT = 3'd3,
-               TX_REC       = 3'd4,
-               TX_REC_WAIT  = 3'd5,
-               TX_STAT      = 3'd6,
-               TX_STAT_WAIT = 3'd7;
+    //
+    // 9 states now (IDLE + 2 each for REC/STAT/ACK/ERR) need 4 bits.
+    localparam TX_IDLE      = 4'd0,
+               TX_REC       = 4'd1,
+               TX_REC_WAIT  = 4'd2,
+               TX_STAT      = 4'd3,
+               TX_STAT_WAIT = 4'd4,
+               TX_ACK       = 4'd5,
+               TX_ACK_WAIT  = 4'd6,
+               TX_ERR       = 4'd7,
+               TX_ERR_WAIT  = 4'd8;
 
-    reg [2:0] tx_state     = TX_IDLE;
-    reg [4:0] msg_addr     = 5'd0;
-    reg [2:0] rec_byte_idx = 3'd0;
-    reg [1:0] stat_byte_idx= 2'd0;
-    reg       hello_pending= 1'b0;
-    reg       hello_active = 1'b0;   // mid-message, so TX_IDLE resumes instead of restarting
-    reg       echo_pending = 1'b0;
-    reg [7:0] echo_byte    = 8'h00;
+    reg [3:0] tx_state      = TX_IDLE;
+    reg [2:0] rec_byte_idx  = 3'd0;   // EDGE_RECORD is 7 bytes: idx 0..6
+    reg [2:0] stat_byte_idx = 3'd0;   // STATUS_REPLY is 7 bytes: idx 0..6
+    reg [1:0] ack_byte_idx  = 2'd0;   // ACK is 3 bytes: idx 0..2
+    reg [1:0] err_byte_idx  = 2'd0;   // ERROR is 4 bytes: idx 0..3
 
     wire [NUM_CHANNELS-1:0] probe_sync;
     sync #(.WIDTH(NUM_CHANNELS)) probe_sync_unit (
@@ -234,11 +245,13 @@ module top #(
     wire        fifo_full;
     wire        fifo_empty;
     wire        fifo_overflow;
-    wire [6:0]  fifo_high_water;
+    // width tracks FIFO_DEPTH automatically (fifo.v's own PTR_W does the
+    // same $clog2 derivation) so this can't drift out of sync either
+    wire [$clog2(FIFO_DEPTH):0] fifo_high_water;
     wire [39:0] fifo_rd_data;
     wire        fifo_rd_en;
 
-    fifo_ff #(.DEPTH(64), .WIDTH(40), .PTR_W(6)) record_fifo (
+    fifo_ff #(.DEPTH(FIFO_DEPTH), .WIDTH(40)) record_fifo (
         .clk        (clk),
         .ovf_clear  (ts_reset),
         .wr_en      (rec_valid),
@@ -276,7 +289,7 @@ module top #(
     // actually got sent on real hardware even though it simulated fine
     // in Icarus. This wire lets the popper stay the sole driver while
     // still reacting to the arbiter finishing.
-    wire rec_tx_done = (tx_state == TX_REC_WAIT) && !uart_tx_busy && (rec_byte_idx == 3'd5);
+    wire rec_tx_done = (tx_state == TX_REC_WAIT) && !uart_tx_busy && (rec_byte_idx == 3'd6);
 
     always @(posedge clk) begin
         case (pop_state)
@@ -298,83 +311,114 @@ module top #(
         endcase
     end
 
-    // ---- 'V' status reply state (the actual set/clear of stat_pending
-    // lives in the TX arbiter's always block below, alongside
-    // hello_pending/echo_pending, for the same single-driver reason
-    // explained above) ----
+    // ---- reply state for status/ack/error. The actual set/clear of
+    // each *_pending lives in the TX arbiter's always block below
+    // (set at its tail, cleared in that message's own *_WAIT state),
+    // never in a separate always block - see the big comment up at the
+    // popper for why a second driver on the same reg is dangerous, not
+    // just untidy: it's the exact bug that silently killed the status
+    // reply the first time this project had one. ----
     reg        stat_pending    = 1'b0;
     reg        stat_overflow   = 1'b0;
     reg [15:0] stat_high_water = 16'd0;
 
+    reg        ack_pending   = 1'b0;
+    reg [7:0]  ack_cmd_latch = 8'h00;
+
+    reg        err_pending   = 1'b0;
+    reg [7:0]  err_bad_latch = 8'h00;
+
+    // depth never changes at runtime, so no need to latch it - just
+    // feed FIFO_DEPTH straight into the status byte lookup below
+    localparam [15:0] STATUS_DEPTH = FIFO_DEPTH;
+
+    // ---- framed protocol: [MARKER][PAYLOAD...][CHECKSUM]. The marker
+    // byte alone tells the host both "this is a frame start" and,
+    // since payload length is fixed per marker, exactly how many more
+    // bytes to expect - no separate length byte needed. CHECKSUM is
+    // the 8-bit sum (mod 256, via plain truncation on assignment to an
+    // 8-bit function return - no multiply/divide anywhere) of the
+    // marker plus every payload byte. If a host's checksum check fails
+    // - false marker match, or real corruption - it should resync by
+    // advancing exactly one byte and rescanning, not by skipping this
+    // frame's whole claimed length. ----
+    localparam [7:0] MARKER_EDGE = 8'hA5;
+    localparam [7:0] MARKER_STAT = 8'hA6;
+    localparam [7:0] MARKER_ACK  = 8'hA7;
+    localparam [7:0] MARKER_ERR  = 8'hA8;
+
+    localparam [7:0] ERR_UNKNOWN_CMD = 8'h01;
+
+    // EDGE_RECORD - 7 bytes: marker, ts[31:24..7:0], state, checksum
+    function [7:0] rec_checksum(input [39:0] rec);
+        reg [7:0] sum;
+        begin
+            sum = MARKER_EDGE + rec[39:32] + rec[31:24] + rec[23:16] + rec[15:8] + rec[7:0];
+            rec_checksum = sum;
+        end
+    endfunction
+
     function [7:0] rec_byte_lookup(input [39:0] rec, input [2:0] idx);
         case (idx)
-            3'd0: rec_byte_lookup = 8'hA5;         // sync marker - lets the host frame
-                                                    // records apart from the hello/echo text
-                                                    // sharing this same wire
+            3'd0: rec_byte_lookup = MARKER_EDGE;
             3'd1: rec_byte_lookup = rec[39:32];    // timestamp[31:24]
             3'd2: rec_byte_lookup = rec[31:24];    // timestamp[23:16]
             3'd3: rec_byte_lookup = rec[23:16];    // timestamp[15:8]
             3'd4: rec_byte_lookup = rec[15:8];     // timestamp[7:0]
             3'd5: rec_byte_lookup = rec[7:0];      // channel state
+            3'd6: rec_byte_lookup = rec_checksum(rec);
             default: rec_byte_lookup = 8'h00;
         endcase
     endfunction
 
-    function [7:0] stat_byte_lookup(input ovf, input [15:0] hw, input [1:0] idx);
-        case (idx)
-            2'd0: stat_byte_lookup = 8'hA6;        // sync marker
-            2'd1: stat_byte_lookup = {7'd0, ovf};
-            2'd2: stat_byte_lookup = hw[15:8];
-            2'd3: stat_byte_lookup = hw[7:0];
-        endcase
-    endfunction
-
-    // "Hello from FPGA\r\n" - 17 bytes, sent once per second
-    localparam MSG_LAST = 5'd16;
-
-    function [7:0] msg_lookup(input [4:0] addr);
-        case (addr)
-            5'd0  : msg_lookup = 8'h48;   // H
-            5'd1  : msg_lookup = 8'h65;   // e
-            5'd2  : msg_lookup = 8'h6C;   // l
-            5'd3  : msg_lookup = 8'h6C;   // l
-            5'd4  : msg_lookup = 8'h6F;   // o
-            5'd5  : msg_lookup = 8'h20;   // ' '
-            5'd6  : msg_lookup = 8'h66;   // f
-            5'd7  : msg_lookup = 8'h72;   // r
-            5'd8  : msg_lookup = 8'h6F;   // o
-            5'd9  : msg_lookup = 8'h6D;   // m
-            5'd10 : msg_lookup = 8'h20;   // ' '
-            5'd11 : msg_lookup = 8'h46;   // F
-            5'd12 : msg_lookup = 8'h50;   // P
-            5'd13 : msg_lookup = 8'h47;   // G
-            5'd14 : msg_lookup = 8'h41;   // A
-            5'd15 : msg_lookup = 8'h0D;   // \r
-            5'd16 : msg_lookup = 8'h0A;   // \n
-            default: msg_lookup = 8'h00;
-        endcase
-    endfunction
-
-    // once-a-second tick - reuses CYCLES_PER_MS so simulation can shrink it too
-    reg [24:0] sec_cnt  = 25'd0;
-    reg        sec_tick = 1'b0;
-
-    always @(posedge clk) begin
-        sec_tick <= 1'b0;
-        if (sec_cnt == (CYCLES_PER_MS * 1000) - 1'b1) begin
-            sec_cnt  <= 25'd0;
-            sec_tick <= 1'b1;
-        end else begin
-            sec_cnt <= sec_cnt + 1'b1;
+    // STATUS_REPLY - 7 bytes: marker, overflow, high_water(2B), depth(2B), checksum
+    function [7:0] stat_checksum(input ovf, input [15:0] hw, input [15:0] depth);
+        reg [7:0] sum;
+        begin
+            sum = MARKER_STAT + {7'd0, ovf} + hw[15:8] + hw[7:0] + depth[15:8] + depth[7:0];
+            stat_checksum = sum;
         end
-    end
+    endfunction
+
+    function [7:0] stat_byte_lookup(input ovf, input [15:0] hw, input [15:0] depth, input [2:0] idx);
+        case (idx)
+            3'd0: stat_byte_lookup = MARKER_STAT;
+            3'd1: stat_byte_lookup = {7'd0, ovf};
+            3'd2: stat_byte_lookup = hw[15:8];
+            3'd3: stat_byte_lookup = hw[7:0];
+            3'd4: stat_byte_lookup = depth[15:8];
+            3'd5: stat_byte_lookup = depth[7:0];
+            3'd6: stat_byte_lookup = stat_checksum(ovf, hw, depth);
+            default: stat_byte_lookup = 8'h00;
+        endcase
+    endfunction
+
+    // ACK - 3 bytes: marker, command byte, checksum
+    function [7:0] ack_byte_lookup(input [7:0] cmd, input [1:0] idx);
+        case (idx)
+            2'd0: ack_byte_lookup = MARKER_ACK;
+            2'd1: ack_byte_lookup = cmd;
+            2'd2: ack_byte_lookup = MARKER_ACK + cmd;   // checksum
+            default: ack_byte_lookup = 8'h00;
+        endcase
+    endfunction
+
+    // ERROR - 4 bytes: marker, error code, offending byte, checksum
+    function [7:0] err_byte_lookup(input [7:0] code, input [7:0] bad, input [1:0] idx);
+        case (idx)
+            2'd0: err_byte_lookup = MARKER_ERR;
+            2'd1: err_byte_lookup = code;
+            2'd2: err_byte_lookup = bad;
+            2'd3: err_byte_lookup = MARKER_ERR + code + bad;   // checksum
+            default: err_byte_lookup = 8'h00;
+        endcase
+    endfunction
 
     // single arbiter owns the one physical TX line. Priority, highest
     // first: capture records (losing these would silently corrupt a
-    // capture), echo (direct response to the host), status reply,
-    // then the periodic hello housekeeping message.
-    // (TX_IDLE..TX_STAT_WAIT and the regs this always block drives are
-    // declared up near probe_sync, not here - see the comment there)
+    // capture), error replies (you want to know immediately if the
+    // host sent something unrecognised), command acks, then status
+    // replies (already sent only on request, fine to wait a beat).
     always @(posedge clk) begin
         uart_tx_start <= 1'b0;
 
@@ -383,46 +427,16 @@ module top #(
             if (rec_pending) begin
                 rec_byte_idx <= 3'd0;
                 tx_state     <= TX_REC;
-            end else if (echo_pending) begin
-                uart_tx_data  <= echo_byte;
-                uart_tx_start <= 1'b1;
-                echo_pending  <= 1'b0;
-                tx_state      <= TX_ECHO_WAIT;
+            end else if (err_pending) begin
+                err_byte_idx <= 2'd0;
+                tx_state     <= TX_ERR;
+            end else if (ack_pending) begin
+                ack_byte_idx <= 2'd0;
+                tx_state     <= TX_ACK;
             end else if (stat_pending) begin
-                stat_byte_idx <= 2'd0;
+                stat_byte_idx <= 3'd0;
                 tx_state      <= TX_STAT;
-            end else if (hello_active) begin
-                tx_state <= TX_HELLO;       // resume where the last byte left off
-            end else if (hello_pending) begin
-                msg_addr     <= 5'd0;
-                hello_active <= 1'b1;
-                tx_state     <= TX_HELLO;
             end
-        end
-
-        TX_HELLO: begin
-            uart_tx_data  <= msg_lookup(msg_addr);
-            uart_tx_start <= 1'b1;
-            tx_state      <= TX_HELLO_WAIT;
-        end
-
-        TX_HELLO_WAIT: begin
-            if (!uart_tx_busy) begin
-                if (msg_addr == MSG_LAST) begin
-                    hello_pending <= 1'b0;
-                    hello_active  <= 1'b0;
-                    tx_state      <= TX_IDLE;
-                end else begin
-                    msg_addr <= msg_addr + 1'b1;
-                    tx_state <= TX_IDLE;    // yield back to the arbiter after every byte,
-                                             // so a record that just arrived isn't stuck
-                                             // waiting behind the rest of this message
-                end
-            end
-        end
-
-        TX_ECHO_WAIT: begin
-            if (!uart_tx_busy) tx_state <= TX_IDLE;
         end
 
         TX_REC: begin
@@ -433,7 +447,7 @@ module top #(
 
         TX_REC_WAIT: begin
             if (!uart_tx_busy) begin
-                if (rec_byte_idx == 3'd5) begin
+                if (rec_byte_idx == 3'd6) begin
                     // rec_pending is cleared by the popper's own always
                     // block (it watches rec_tx_done, computed from
                     // tx_state/rec_byte_idx right here) - see the big
@@ -448,14 +462,14 @@ module top #(
         end
 
         TX_STAT: begin
-            uart_tx_data  <= stat_byte_lookup(stat_overflow, stat_high_water, stat_byte_idx);
+            uart_tx_data  <= stat_byte_lookup(stat_overflow, stat_high_water, STATUS_DEPTH, stat_byte_idx);
             uart_tx_start <= 1'b1;
             tx_state      <= TX_STAT_WAIT;
         end
 
         TX_STAT_WAIT: begin
             if (!uart_tx_busy) begin
-                if (stat_byte_idx == 2'd3) begin
+                if (stat_byte_idx == 3'd6) begin
                     stat_pending <= 1'b0;
                     tx_state     <= TX_IDLE;
                 end else begin
@@ -465,23 +479,71 @@ module top #(
             end
         end
 
+        TX_ACK: begin
+            uart_tx_data  <= ack_byte_lookup(ack_cmd_latch, ack_byte_idx);
+            uart_tx_start <= 1'b1;
+            tx_state      <= TX_ACK_WAIT;
+        end
+
+        TX_ACK_WAIT: begin
+            if (!uart_tx_busy) begin
+                if (ack_byte_idx == 2'd2) begin
+                    ack_pending <= 1'b0;
+                    tx_state    <= TX_IDLE;
+                end else begin
+                    ack_byte_idx <= ack_byte_idx + 1'b1;
+                    tx_state     <= TX_ACK;
+                end
+            end
+        end
+
+        TX_ERR: begin
+            uart_tx_data  <= err_byte_lookup(ERR_UNKNOWN_CMD, err_bad_latch, err_byte_idx);
+            uart_tx_start <= 1'b1;
+            tx_state      <= TX_ERR_WAIT;
+        end
+
+        TX_ERR_WAIT: begin
+            if (!uart_tx_busy) begin
+                if (err_byte_idx == 2'd3) begin
+                    err_pending <= 1'b0;
+                    tx_state    <= TX_IDLE;
+                end else begin
+                    err_byte_idx <= err_byte_idx + 1'b1;
+                    tx_state     <= TX_ERR;
+                end
+            end
+        end
+
         default: tx_state <= TX_IDLE;
         endcase
 
-        // a fresh request always wins over a same-cycle "done" clear above,
-        // so a byte that lands exactly as one job finishes is never dropped
-        if (sec_tick) hello_pending <= 1'b1;
-        if (uart_rx_valid) begin
-            echo_byte    <= uart_rx_data;
-            echo_pending <= 1'b1;
-        end
-        // stat_pending's set logic lives here (not in its own always
-        // block) so it has exactly one driver, same reasoning as
-        // hello_pending/echo_pending above
+        // set logic for stat/ack/err pending lives here (not in
+        // separate always blocks) so each has exactly one driver - see
+        // the big comment up at the popper for why. ack/err additionally
+        // guard on "not already pending": if a second S/X/R (or a
+        // second bad byte) arrives before the first ack/error finished
+        // sending, it still takes effect immediately (capture_en etc.
+        // are set unconditionally in the command decode block above),
+        // it just won't get its own separate ack/error frame - in
+        // practice these are ~260us round-trips and commands don't
+        // arrive faster than a human or script can send them.
         if (status_req) begin
             stat_overflow   <= fifo_overflow;
-            stat_high_water <= {9'd0, fifo_high_water};
+            // zero-pad fifo_high_water (width tracks FIFO_DEPTH, see its
+            // declaration above) out to the fixed 16-bit wire field -
+            // a hardcoded pad count here would silently truncate the
+            // top bit if FIFO_DEPTH ever needed a wider pointer
+            stat_high_water <= {{(15 - $clog2(FIFO_DEPTH)){1'b0}}, fifo_high_water};
             stat_pending    <= 1'b1;
+        end
+        if (ack_req && !ack_pending) begin
+            ack_cmd_latch <= ack_cmd;
+            ack_pending   <= 1'b1;
+        end
+        if (err_req && !err_pending) begin
+            err_bad_latch <= err_bad_byte;
+            err_pending   <= 1'b1;
         end
     end
 

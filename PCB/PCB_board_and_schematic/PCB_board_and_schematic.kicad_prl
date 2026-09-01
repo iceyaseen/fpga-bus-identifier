@@ -92,14 +92,14 @@
     "selection_filter": {
       "graphics": false,
       "images": false,
-      "labels": false,
+      "labels": true,
       "lockedItems": false,
-      "otherItems": false,
+      "otherItems": true,
       "pins": false,
       "ruleAreas": false,
       "symbols": true,
-      "text": true,
-      "wires": false
+      "text": false,
+      "wires": true
     }
   }
 }

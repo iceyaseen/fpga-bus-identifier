@@ -1,25 +1,36 @@
 // ============================================================
 //  fifo.v - plain-flip-flop FIFO between edge_capture and the UART.
 //
-//  DEPTH=64 x WIDTH=40 = 2560 flip-flops, which leaves headroom
-//  inside the GW1NR-9C's ~6480-FF budget alongside the rest of the
-//  design (256-deep would need 10240 FFs - more than the whole chip
-//  has, before counting anything else). Swap for BSRAM-backed
-//  storage later to go deeper without spending general-purpose FFs.
+//  DEPTH is a real top-level parameter now (see top.v's FIFO_DEPTH).
+//  At WIDTH=40, DEPTH x 40 flip-flops get spent on this FIFO alone -
+//  128 is 5120 FFs, comfortably inside the GW1NR-9C's ~6480-FF total
+//  budget alongside the rest of the design (~90 FFs for everything
+//  else, last measured). 256 would need 10240 FFs, more than the
+//  whole chip has - swap for BSRAM-backed storage to go that deep.
 //
-//  PTR_W is set by hand to log2(DEPTH), same convention as the
-//  hand-picked counter widths elsewhere in this project (see
-//  debounce's 19-bit count) - if you change DEPTH, update PTR_W
-//  to match (PTR_W = 6 for 64, 7 for 128, etc).
+//  PTR_W used to be a separate hand-set parameter (matching this
+//  project's usual "explicit, hand-picked widths" convention - see
+//  debounce's 19-bit count), but that's an easy thing to forget to
+//  update when DEPTH changes, and DEPTH is now something you're meant
+//  to actually adjust. So PTR_W defaults to $clog2(DEPTH) instead -
+//  still a plain `parameter` (Icarus's default elaboration mode
+//  rejects a `localparam` inside the port list, "requires
+//  SystemVerilog"), just never overridden at instantiation, so it
+//  can't drift out of sync with DEPTH.
+//
+//  DEPTH must be a power of 2: wr_ptr/rd_ptr wrap via plain binary
+//  overflow, not an explicit "wrap at DEPTH" reset, so a non-power-of-2
+//  DEPTH would silently address entries beyond DEPTH-1 without ever
+//  reusing them correctly.
 //
 //  wr_en/wr_data must already be valid the cycle wr_en is high -
 //  there's no separate 'ready' handshake. Pushing while full sets
 //  the sticky overflow flag instead of corrupting the queue.
 // ============================================================
 module fifo_ff #(
-    parameter DEPTH = 64,
+    parameter DEPTH = 128,
     parameter WIDTH = 40,
-    parameter PTR_W = 6
+    parameter PTR_W = $clog2(DEPTH)
 ) (
     input  wire              clk,
     input  wire              ovf_clear,      // one-cycle pulse: clears overflow + high_water

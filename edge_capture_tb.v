@@ -10,10 +10,10 @@
 //    probe[1] while SCL is low) followed by a slow square wave on
 //    both channels together. Every transition is recorded as ground
 //    truth (channel state + the exact clock-edge count it happened on).
-//  - Independently bit-bangs the uart_tx line back into bytes, scans
-//    for the 0xA5 record marker (ignoring the periodic hello text and
-//    anything else on the wire, same as host.py has to), and decodes
-//    each 6-byte frame into a timestamp + state.
+//  - Independently bit-bangs the uart_tx line back into bytes, frames
+//    all four message types by marker (EDGE_RECORD/STATUS_REPLY/ACK/
+//    ERROR), validates every checksum, and decodes each 7-byte
+//    EDGE_RECORD frame into a timestamp + state.
 //  - Checks: same number of records as transitions driven, states
 //    match in order, and consecutive timestamp deltas exactly match
 //    the real clock-edge deltas between the driving events. The fixed
@@ -24,6 +24,7 @@
 module edge_capture_tb;
 
     localparam CLKS_PER_BIT_TB = 234;   // matches uart_tx/uart_rx's default
+    localparam ACK_ROUND_TRIP  = 10_000; // > one 3-byte ACK frame's transmit time (7020 clocks)
 
     reg clk = 1'b0;
     always #1 clk = ~clk;
@@ -90,37 +91,79 @@ module edge_capture_tb;
     endtask
 
     // ---- background receiver: continuously decodes uart_tx_line,
-    //      frames 0xA5 records (6 bytes) and 0xA6 status replies
-    //      (4 bytes), and discards everything else (hello text, echo) ----
+    //      frames all four message types by marker, and validates the
+    //      checksum on every one - a bad checksum here means a real
+    //      bug (RTL checksum computation vs. what actually got
+    //      latched), not just "unlucky corruption", since this is a
+    //      clean wire straight from the DUT with nothing injected. ----
     localparam REC_MARKER  = 8'hA5;
     localparam STAT_MARKER = 8'hA6;
+    localparam ACK_MARKER  = 8'hA7;
+    localparam ERR_MARKER  = 8'hA8;
 
     reg [31:0] dec_ts    [0:63];
     reg [7:0]  dec_state [0:63];
     integer    dec_count;
+    integer    checksum_errors;
+    integer    ack_count;
+    integer    err_count;
+    reg [7:0]  last_err_code;
+    reg [7:0]  last_err_bad;
 
     reg [7:0] rb;
-    reg [7:0] fb0, fb1, fb2, fb3, fb4;
+    reg [7:0] fb0, fb1, fb2, fb3, fb4, fb5;
+    reg [7:0] csum;
 
     initial begin
-        dec_count = 0;
+        dec_count       = 0;
+        checksum_errors = 0;
+        ack_count       = 0;
+        err_count       = 0;
         forever begin
             get_uart_byte(rb);
             if (rb == REC_MARKER) begin
-                get_uart_byte(fb0);
-                get_uart_byte(fb1);
-                get_uart_byte(fb2);
-                get_uart_byte(fb3);
-                get_uart_byte(fb4);
-                dec_ts[dec_count]    = {fb0, fb1, fb2, fb3};
-                dec_state[dec_count] = fb4;
-                dec_count = dec_count + 1;
+                get_uart_byte(fb0); get_uart_byte(fb1); get_uart_byte(fb2);
+                get_uart_byte(fb3); get_uart_byte(fb4); get_uart_byte(fb5);
+                csum = REC_MARKER + fb0 + fb1 + fb2 + fb3 + fb4;
+                if (csum !== fb5) begin
+                    $display("FAIL: EDGE_RECORD checksum mismatch: computed %02h got %02h", csum, fb5);
+                    checksum_errors = checksum_errors + 1;
+                end else begin
+                    dec_ts[dec_count]    = {fb0, fb1, fb2, fb3};
+                    dec_state[dec_count] = fb4;
+                    dec_count = dec_count + 1;
+                end
             end else if (rb == STAT_MARKER) begin
-                get_uart_byte(fb0);
-                get_uart_byte(fb1);
-                get_uart_byte(fb2);
+                get_uart_byte(fb0); get_uart_byte(fb1); get_uart_byte(fb2);
+                get_uart_byte(fb3); get_uart_byte(fb4); get_uart_byte(fb5);
+                csum = STAT_MARKER + fb0 + fb1 + fb2 + fb3 + fb4;
+                if (csum !== fb5) begin
+                    $display("FAIL: STATUS_REPLY checksum mismatch: computed %02h got %02h", csum, fb5);
+                    checksum_errors = checksum_errors + 1;
+                end
+            end else if (rb == ACK_MARKER) begin
+                get_uart_byte(fb0); get_uart_byte(fb1);
+                csum = ACK_MARKER + fb0;
+                if (csum !== fb1) begin
+                    $display("FAIL: ACK checksum mismatch: computed %02h got %02h", csum, fb1);
+                    checksum_errors = checksum_errors + 1;
+                end
+                ack_count = ack_count + 1;
+            end else if (rb == ERR_MARKER) begin
+                get_uart_byte(fb0); get_uart_byte(fb1); get_uart_byte(fb2);
+                csum = ERR_MARKER + fb0 + fb1;
+                if (csum !== fb2) begin
+                    $display("FAIL: ERROR checksum mismatch: computed %02h got %02h", csum, fb2);
+                    checksum_errors = checksum_errors + 1;
+                end
+                err_count     = err_count + 1;
+                last_err_code = fb0;
+                last_err_bad  = fb1;
             end
-            // else: plain hello/echo text byte - ignore
+            // else: a stray byte with no matching marker - shouldn't
+            // happen on this clean, uninjected wire, and since nothing
+            // else is on it any more (no hello, no echo) there is
+            // nothing legitimate left for it to be
         end
     end
 
@@ -153,10 +196,25 @@ module edge_capture_tb;
         // let power-on/reset settle
         repeat (2000) @(posedge clk);
 
-        // 'R' then 'S' - reset the timestamp counter/overflow, start capturing
+        // 'R' then 'S' - reset the timestamp counter/overflow, start capturing.
+        // Real usage (host.py's REPL) sends one command, waits to see the
+        // ACK, then sends the next - a human or script pacing commands,
+        // not blasting bytes back to back. ACK_ROUND_TRIP is generous
+        // headroom for one 3-byte ACK frame (3*10*234 clocks) to fully
+        // arrive before the next command goes out, so the "won't get a
+        // separate ACK if the previous one is still in flight" tradeoff
+        // (documented at the ack_req/ack_pending guard in top.v) never
+        // actually triggers here - it's testing realistic usage, not
+        // artificially defeating its own documented assumption.
         send_uart_byte(8'h52);   // 'R'
+        repeat (ACK_ROUND_TRIP) @(posedge clk);
         send_uart_byte(8'h53);   // 'S'
-        repeat (100) @(posedge clk);
+        repeat (ACK_ROUND_TRIP) @(posedge clk);
+
+        // unrecognised command byte - expect a real ERROR frame, not a
+        // silent drop or an echo of 'Z' back
+        send_uart_byte(8'h5A);   // 'Z'
+        repeat (ACK_ROUND_TRIP) @(posedge clk);
 
         // ---- I2C-like burst: probe[0]=SCL-style clock, probe[1]=SDA-style
         //      data (data only changes while SCL is low, like real I2C) ----
@@ -220,8 +278,33 @@ module edge_capture_tb;
             end
         end
 
+        if (checksum_errors > 0) begin
+            $display("FAIL: %0d checksum mismatch(es) on an uninjected wire", checksum_errors);
+            errors = errors + checksum_errors;
+        end
+
+        // R then S were sent - expect exactly 2 ACKs, 0 errors
+        if (ack_count != 2) begin
+            $display("FAIL: expected 2 ACKs (for R and S), got %0d", ack_count);
+            errors = errors + 1;
+        end
+        if (err_count != 1) begin
+            $display("FAIL: expected 1 ERROR frame (for the bad 'Z' byte), got %0d", err_count);
+            errors = errors + 1;
+        end else begin
+            if (last_err_code !== 8'h01) begin
+                $display("FAIL: ERROR code: expected 01 got %02h", last_err_code);
+                errors = errors + 1;
+            end
+            if (last_err_bad !== 8'h5A) begin
+                $display("FAIL: ERROR bad_byte: expected 5A got %02h", last_err_bad);
+                errors = errors + 1;
+            end
+        end
+
         if (errors == 0)
-            $display("---- all %0d records matched expected state and timing ----", exp_count);
+            $display("---- all %0d records matched expected state and timing, checksums clean, %0d ACKs, %0d ERROR frame(s) all correct ----",
+                      exp_count, ack_count, err_count);
         else
             $display("---- %0d error(s) found ----", errors);
 
