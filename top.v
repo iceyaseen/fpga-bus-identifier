@@ -8,7 +8,8 @@
 // ============================================================
 
 module top #(
-    parameter CYCLES_PER_MS = 27000     // override in simulation to speed up delays
+    parameter CYCLES_PER_MS = 27000,    // override in simulation to speed up delays
+    parameter NUM_CHANNELS  = 2         // probe channel count - bump this (and the .cst) for more
 ) (
     input  wire       clk,        // 27 MHz, pin 52
 
@@ -24,7 +25,9 @@ module top #(
     output wire       lcd_sclk,
     output wire       lcd_mosi,
 
-    output wire [5:0] led
+    output wire [5:0] led,
+
+    inout  wire [NUM_CHANNELS-1:0] probe   // logic-analyser probe pins: pins 27/28, see .cst
 );
 
     // ---- settings -------------------------------------------
@@ -114,6 +117,218 @@ module top #(
         if (uart_rx_valid) rx_byte_latch <= uart_rx_data;
     end
 
+    // ---- edge capture engine -------------------------------
+    // probe is inout so active probing can be added later; nothing
+    // drives it in this version.
+    //
+    // This pin's read side used to be `wire probe_in = probe;`, reading
+    // straight off the inout port. That is legal Verilog, and simulates
+    // fine (edge_capture_tb.v passed), but real synthesis broke it: with
+    // synth_gowin, since probe_drive_en never varies (nothing drives
+    // it), Yosys constant-folded probe's own drive expression at
+    // compile time and used THAT as the value of probe_in too - i.e. it
+    // treated "what we're (not) driving" as "what the pin reads",
+    // instead of wiring the read back to the IOBUF's real O pin. Traced
+    // in the synthesized netlist: probe_in ended up tied to a literal
+    // constant 'z', completely disconnected from the actual pad voltage
+    // - so no amount of external toggling on pins 27/28 could ever have
+    // registered, with no error or warning pointing at it directly.
+    //
+    // Fix: instantiate Gowin's IOBUF primitive by name for real builds.
+    // That primitive's O pin is a genuine hardware read-back path, not
+    // something Yosys can fold away. `SYNTHESIS` is defined
+    // automatically by `read_verilog` (confirmed: `yosys -h read_verilog`
+    // says so, and the actual build command this project's toolchain
+    // runs never passes -nosynthesis), so this reliably picks the real
+    // primitive for every real build and the simple behavioral version
+    // for iverilog simulation, which doesn't know about Gowin's IOBUF.
+    reg                      probe_drive_en  = 1'b0;
+    reg  [NUM_CHANNELS-1:0]  probe_drive_val = {NUM_CHANNELS{1'b0}};
+    wire [NUM_CHANNELS-1:0] probe_in;
+
+`ifdef SYNTHESIS
+    genvar probe_i;
+    generate
+        for (probe_i = 0; probe_i < NUM_CHANNELS; probe_i = probe_i + 1) begin : probe_iobuf
+            IOBUF u_probe_iobuf (
+                .O   (probe_in[probe_i]),
+                .IO  (probe[probe_i]),
+                .I   (probe_drive_val[probe_i]),
+                .OEN (~probe_drive_en)   // OEN=1 -> tri-stated, per Gowin's IOBUF model
+            );
+        end
+    endgenerate
+`else
+    assign probe    = probe_drive_en ? probe_drive_val : {NUM_CHANNELS{1'bz}};
+    assign probe_in = probe;
+`endif
+
+    // 'S'/'X'/'R'/'V' commands from the host, decoded alongside the
+    // existing byte echo above (both just watch uart_rx_valid)
+    reg capture_en = 1'b0;
+    reg ts_reset   = 1'b0;   // one-cycle pulse: zeroes the timestamp counter + clears FIFO overflow
+    reg status_req = 1'b0;   // one-cycle pulse: latch+queue a 'V' status reply
+
+    always @(posedge clk) begin
+        ts_reset   <= 1'b0;
+        status_req <= 1'b0;
+        if (uart_rx_valid) begin
+            case (uart_rx_data)
+                8'h53: capture_en <= 1'b1;   // 'S'
+                8'h58: capture_en <= 1'b0;   // 'X'
+                8'h52: ts_reset   <= 1'b1;   // 'R'
+                8'h56: status_req <= 1'b1;   // 'V'
+                default: ;
+            endcase
+        end
+    end
+
+    // TX arbiter state names + the regs it owns, declared up here (ahead
+    // of the popper below, which needs TX_REC_WAIT/tx_state/rec_byte_idx
+    // for rec_tx_done) so every reference in this file is to an
+    // already-declared symbol - Icarus's default elaboration mode
+    // rejects forward references even though plain Verilog allows them,
+    // and depending on forward references made the multi-driver bug
+    // below easy to miss. The arbiter's actual always block (the logic
+    // that drives these regs) still lives further down, where it reads
+    // naturally alongside the states it walks through.
+    localparam TX_IDLE      = 3'd0,
+               TX_HELLO     = 3'd1,
+               TX_HELLO_WAIT= 3'd2,
+               TX_ECHO_WAIT = 3'd3,
+               TX_REC       = 3'd4,
+               TX_REC_WAIT  = 3'd5,
+               TX_STAT      = 3'd6,
+               TX_STAT_WAIT = 3'd7;
+
+    reg [2:0] tx_state     = TX_IDLE;
+    reg [4:0] msg_addr     = 5'd0;
+    reg [2:0] rec_byte_idx = 3'd0;
+    reg [1:0] stat_byte_idx= 2'd0;
+    reg       hello_pending= 1'b0;
+    reg       hello_active = 1'b0;   // mid-message, so TX_IDLE resumes instead of restarting
+    reg       echo_pending = 1'b0;
+    reg [7:0] echo_byte    = 8'h00;
+
+    wire [NUM_CHANNELS-1:0] probe_sync;
+    sync #(.WIDTH(NUM_CHANNELS)) probe_sync_unit (
+        .clk      (clk),
+        .async_in (probe_in),
+        .sync_out (probe_sync)
+    );
+
+    wire        rec_valid;
+    wire [31:0] rec_ts;
+    wire [7:0]  rec_st;
+
+    edge_capture #(.NUM_CHANNELS(NUM_CHANNELS)) capture_unit (
+        .clk           (clk),
+        .capture_en    (capture_en),
+        .ts_reset      (ts_reset),
+        .chan_sync     (probe_sync),
+        .rec_timestamp (rec_ts),
+        .rec_state     (rec_st),
+        .rec_valid     (rec_valid)
+    );
+
+    wire        fifo_full;
+    wire        fifo_empty;
+    wire        fifo_overflow;
+    wire [6:0]  fifo_high_water;
+    wire [39:0] fifo_rd_data;
+    wire        fifo_rd_en;
+
+    fifo_ff #(.DEPTH(64), .WIDTH(40), .PTR_W(6)) record_fifo (
+        .clk        (clk),
+        .ovf_clear  (ts_reset),
+        .wr_en      (rec_valid),
+        .wr_data    ({rec_ts, rec_st}),
+        .full       (fifo_full),
+        .rd_en      (fifo_rd_en),
+        .rd_data    (fifo_rd_data),
+        .empty      (fifo_empty),
+        .overflow   (fifo_overflow),
+        .high_water (fifo_high_water)
+    );
+
+    // ---- record popper: pulls one record out of the FIFO, latches
+    //      it (rd_data is only valid one cycle after rd_en), then
+    //      hands it to the TX arbiter below as rec_pending ----
+    localparam POP_IDLE = 2'd0,
+               POP_LATCH= 2'd1,
+               POP_HOLD = 2'd2;
+
+    reg [1:0]  pop_state   = POP_IDLE;
+    reg [39:0] rec_latch   = 40'd0;
+    reg        rec_pending = 1'b0;
+
+    // combinational, not registered: if this were a reg (rd_en <= 1 in
+    // POP_IDLE), the FIFO wouldn't see rd_en=1 until the cycle after
+    // POP_IDLE, and POP_LATCH would then read rd_data one cycle too
+    // early - a stale read that silently corrupts every record
+    assign fifo_rd_en = (pop_state == POP_IDLE) && !fifo_empty && !rec_pending;
+
+    // combinational flag: "the TX arbiter just sent this record's last
+    // byte". rec_pending must have exactly ONE always-block driver: this
+    // used to be written from here AND from the TX arbiter, which Yosys
+    // correctly rejected as a multi-driver conflict and silently
+    // resolved by tying it to a constant - so no status/record ever
+    // actually got sent on real hardware even though it simulated fine
+    // in Icarus. This wire lets the popper stay the sole driver while
+    // still reacting to the arbiter finishing.
+    wire rec_tx_done = (tx_state == TX_REC_WAIT) && !uart_tx_busy && (rec_byte_idx == 3'd5);
+
+    always @(posedge clk) begin
+        case (pop_state)
+            POP_IDLE: begin
+                if (fifo_rd_en) pop_state <= POP_LATCH;
+            end
+            POP_LATCH: begin
+                rec_latch   <= fifo_rd_data;
+                rec_pending <= 1'b1;
+                pop_state   <= POP_HOLD;
+            end
+            POP_HOLD: begin
+                if (rec_tx_done) begin
+                    rec_pending <= 1'b0;
+                    pop_state   <= POP_IDLE;
+                end
+            end
+            default: pop_state <= POP_IDLE;
+        endcase
+    end
+
+    // ---- 'V' status reply state (the actual set/clear of stat_pending
+    // lives in the TX arbiter's always block below, alongside
+    // hello_pending/echo_pending, for the same single-driver reason
+    // explained above) ----
+    reg        stat_pending    = 1'b0;
+    reg        stat_overflow   = 1'b0;
+    reg [15:0] stat_high_water = 16'd0;
+
+    function [7:0] rec_byte_lookup(input [39:0] rec, input [2:0] idx);
+        case (idx)
+            3'd0: rec_byte_lookup = 8'hA5;         // sync marker - lets the host frame
+                                                    // records apart from the hello/echo text
+                                                    // sharing this same wire
+            3'd1: rec_byte_lookup = rec[39:32];    // timestamp[31:24]
+            3'd2: rec_byte_lookup = rec[31:24];    // timestamp[23:16]
+            3'd3: rec_byte_lookup = rec[23:16];    // timestamp[15:8]
+            3'd4: rec_byte_lookup = rec[15:8];     // timestamp[7:0]
+            3'd5: rec_byte_lookup = rec[7:0];      // channel state
+            default: rec_byte_lookup = 8'h00;
+        endcase
+    endfunction
+
+    function [7:0] stat_byte_lookup(input ovf, input [15:0] hw, input [1:0] idx);
+        case (idx)
+            2'd0: stat_byte_lookup = 8'hA6;        // sync marker
+            2'd1: stat_byte_lookup = {7'd0, ovf};
+            2'd2: stat_byte_lookup = hw[15:8];
+            2'd3: stat_byte_lookup = hw[7:0];
+        endcase
+    endfunction
+
     // "Hello from FPGA\r\n" - 17 bytes, sent once per second
     localparam MSG_LAST = 5'd16;
 
@@ -154,32 +369,34 @@ module top #(
         end
     end
 
-    // single arbiter owns the one physical TX line: echo takes priority
-    // over the housekeeping message, since it's a direct response to the host
-    localparam TX_IDLE      = 2'd0,
-               TX_HELLO     = 2'd1,
-               TX_HELLO_WAIT= 2'd2,
-               TX_ECHO_WAIT = 2'd3;
-
-    reg [1:0] tx_state     = TX_IDLE;
-    reg [4:0] msg_addr     = 5'd0;
-    reg       hello_pending= 1'b0;
-    reg       echo_pending = 1'b0;
-    reg [7:0] echo_byte    = 8'h00;
-
+    // single arbiter owns the one physical TX line. Priority, highest
+    // first: capture records (losing these would silently corrupt a
+    // capture), echo (direct response to the host), status reply,
+    // then the periodic hello housekeeping message.
+    // (TX_IDLE..TX_STAT_WAIT and the regs this always block drives are
+    // declared up near probe_sync, not here - see the comment there)
     always @(posedge clk) begin
         uart_tx_start <= 1'b0;
 
         case (tx_state)
         TX_IDLE: begin
-            if (echo_pending) begin
+            if (rec_pending) begin
+                rec_byte_idx <= 3'd0;
+                tx_state     <= TX_REC;
+            end else if (echo_pending) begin
                 uart_tx_data  <= echo_byte;
                 uart_tx_start <= 1'b1;
                 echo_pending  <= 1'b0;
                 tx_state      <= TX_ECHO_WAIT;
+            end else if (stat_pending) begin
+                stat_byte_idx <= 2'd0;
+                tx_state      <= TX_STAT;
+            end else if (hello_active) begin
+                tx_state <= TX_HELLO;       // resume where the last byte left off
             end else if (hello_pending) begin
-                msg_addr <= 5'd0;
-                tx_state <= TX_HELLO;
+                msg_addr     <= 5'd0;
+                hello_active <= 1'b1;
+                tx_state     <= TX_HELLO;
             end
         end
 
@@ -193,16 +410,59 @@ module top #(
             if (!uart_tx_busy) begin
                 if (msg_addr == MSG_LAST) begin
                     hello_pending <= 1'b0;
+                    hello_active  <= 1'b0;
                     tx_state      <= TX_IDLE;
                 end else begin
                     msg_addr <= msg_addr + 1'b1;
-                    tx_state <= TX_HELLO;
+                    tx_state <= TX_IDLE;    // yield back to the arbiter after every byte,
+                                             // so a record that just arrived isn't stuck
+                                             // waiting behind the rest of this message
                 end
             end
         end
 
         TX_ECHO_WAIT: begin
             if (!uart_tx_busy) tx_state <= TX_IDLE;
+        end
+
+        TX_REC: begin
+            uart_tx_data  <= rec_byte_lookup(rec_latch, rec_byte_idx);
+            uart_tx_start <= 1'b1;
+            tx_state      <= TX_REC_WAIT;
+        end
+
+        TX_REC_WAIT: begin
+            if (!uart_tx_busy) begin
+                if (rec_byte_idx == 3'd5) begin
+                    // rec_pending is cleared by the popper's own always
+                    // block (it watches rec_tx_done, computed from
+                    // tx_state/rec_byte_idx right here) - see the big
+                    // comment up at the popper for why this can't also
+                    // write rec_pending directly
+                    tx_state <= TX_IDLE;
+                end else begin
+                    rec_byte_idx <= rec_byte_idx + 1'b1;
+                    tx_state     <= TX_REC;
+                end
+            end
+        end
+
+        TX_STAT: begin
+            uart_tx_data  <= stat_byte_lookup(stat_overflow, stat_high_water, stat_byte_idx);
+            uart_tx_start <= 1'b1;
+            tx_state      <= TX_STAT_WAIT;
+        end
+
+        TX_STAT_WAIT: begin
+            if (!uart_tx_busy) begin
+                if (stat_byte_idx == 2'd3) begin
+                    stat_pending <= 1'b0;
+                    tx_state     <= TX_IDLE;
+                end else begin
+                    stat_byte_idx <= stat_byte_idx + 1'b1;
+                    tx_state      <= TX_STAT;
+                end
+            end
         end
 
         default: tx_state <= TX_IDLE;
@@ -214,6 +474,14 @@ module top #(
         if (uart_rx_valid) begin
             echo_byte    <= uart_rx_data;
             echo_pending <= 1'b1;
+        end
+        // stat_pending's set logic lives here (not in its own always
+        // block) so it has exactly one driver, same reasoning as
+        // hello_pending/echo_pending above
+        if (status_req) begin
+            stat_overflow   <= fifo_overflow;
+            stat_high_water <= {9'd0, fifo_high_water};
+            stat_pending    <= 1'b1;
         end
     end
 
@@ -585,8 +853,12 @@ module top #(
         endcase
     end
 
-    // LEDs show the low 6 bits of the last byte received over UART (active low)
-    assign led = ~rx_byte_latch[5:0];
+    // LEDs (active low): led[0] lit while capturing, led[1] lit (sticky)
+    // once the FIFO has overflowed, led[5:2] still show the low nibble
+    // of the last byte received over UART, as before
+    assign led[0]   = ~capture_en;
+    assign led[1]   = ~fifo_overflow;
+    assign led[5:2] = ~rx_byte_latch[3:0];
 
 endmodule
 

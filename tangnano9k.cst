@@ -45,3 +45,14 @@ IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 IO_LOC  "uart_rx" 18;
 IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// Logic-analyser probe pins - confirmed. Pins 27/28 are free 3.3V-bank
+// GPIO (top-left header, silkscreen PIN27_IOB11A / PIN28_IOB11B), not
+// used by any onboard peripheral or by this project's existing pins.
+// Add more IO_LOC lines here (probe[2], probe[3], ...) if NUM_CHANNELS
+// grows past 2.
+IO_LOC  "probe[0]" 27;
+IO_PORT "probe[0]" IO_TYPE=LVCMOS33;
+
+IO_LOC  "probe[1]" 28;
+IO_PORT "probe[1]" IO_TYPE=LVCMOS33;
