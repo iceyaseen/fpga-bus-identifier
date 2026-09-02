@@ -1,18 +1,3 @@
-IO_LOC  "lcd_mosi" 53;
-IO_PORT "lcd_mosi" DRIVE=8 IO_TYPE=LVCMOS33;
-
-IO_LOC  "lcd_sclk" 54;
-IO_PORT "lcd_sclk" DRIVE=8 IO_TYPE=LVCMOS33;
-
-IO_LOC  "lcd_cs" 55;
-IO_PORT "lcd_cs" DRIVE=8 IO_TYPE=LVCMOS33;
-
-IO_LOC  "lcd_dc" 56;
-IO_PORT "lcd_dc" DRIVE=8 IO_TYPE=LVCMOS33;
-
-IO_LOC  "lcd_rst" 57;
-IO_PORT "lcd_rst" DRIVE=8 IO_TYPE=LVCMOS33;
-
 IO_LOC  "clk" 52;
 IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
@@ -46,13 +31,24 @@ IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 IO_LOC  "uart_rx" 18;
 IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
-// Logic-analyser probe pins - confirmed. Pins 27/28 are free 3.3V-bank
-// GPIO (top-left header, silkscreen PIN27_IOB11A / PIN28_IOB11B), not
-// used by any onboard peripheral or by this project's existing pins.
-// Add more IO_LOC lines here (probe[2], probe[3], ...) if NUM_CHANNELS
-// grows past 2.
-IO_LOC  "probe[0]" 27;
-IO_PORT "probe[0]" IO_TYPE=LVCMOS33;
+// Pull-up control (P-MOSFET gates, driven through a 100 ohm gate resistor
+// on the PCB) - ACTIVE LOW. A P-channel MOSFET turns ON when its gate is
+// pulled LOW, so driving ctrl_a/ctrl_b low switches that channel's 4.7k
+// pull-up ON. The inversion is easy to forget - a "1" here means the
+// pull-up is OFF, not on.
+IO_LOC  "ctrl_b" 54;
+IO_PORT "ctrl_b" DRIVE=8 IO_TYPE=LVCMOS33;
 
-IO_LOC  "probe[1]" 28;
-IO_PORT "probe[1]" IO_TYPE=LVCMOS33;
+IO_LOC  "ctrl_a" 55;
+IO_PORT "ctrl_a" DRIVE=8 IO_TYPE=LVCMOS33;
+
+// Logic-analyser probe pins, one per channel. Each has a 220 ohm series
+// resistor and Schottky clamp diodes to 3.3V/GND on the PCB.
+// probe_a should default to high impedance with its pull-up off (see
+// ctrl_a above): a 3-pin device leaves this socket position empty, and
+// the pin would otherwise float.
+IO_LOC  "probe_a" 56;
+IO_PORT "probe_a" IO_TYPE=LVCMOS33;
+
+IO_LOC  "probe_b" 57;
+IO_PORT "probe_b" IO_TYPE=LVCMOS33;

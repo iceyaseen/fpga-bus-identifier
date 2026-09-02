@@ -39,7 +39,7 @@ module edge_capture_tb;
     wire [1:0] probe;
     assign probe = probe_drv;           // DUT only ever drives 'z' onto this net in this version
 
-    wire lcd_rst, lcd_dc, lcd_cs, lcd_sclk, lcd_mosi;
+    wire ctrl_a, ctrl_b;
     wire [5:0] led;
 
     initial begin
@@ -47,19 +47,17 @@ module edge_capture_tb;
         $dumpvars(0, uart_tx_line, probe, led);
     end
 
-    top #(.CYCLES_PER_MS(4)) dut (
+    top dut (
         .clk      (clk),
         .btn1     (btn1),
         .btn2     (btn2),
         .uart_rx  (uart_rx_line),
         .uart_tx  (uart_tx_line),
-        .lcd_rst  (lcd_rst),
-        .lcd_dc   (lcd_dc),
-        .lcd_cs   (lcd_cs),
-        .lcd_sclk (lcd_sclk),
-        .lcd_mosi (lcd_mosi),
+        .ctrl_a   (ctrl_a),
+        .ctrl_b   (ctrl_b),
         .led      (led),
-        .probe    (probe)
+        .probe_a  (probe[0]),
+        .probe_b  (probe[1])
     );
 
     // ---- bit-bang a byte into the DUT's uart_rx, host-side format ----

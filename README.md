@@ -9,18 +9,19 @@ The FPGA side is still in progress.
 Working today:
 - Edge capture on two probe channels, timestamped and streamed to a Python host over UART.
 - A framed UART protocol between the FPGA and the host (start/stop/reset/status commands, checksummed records).
-- A from-scratch SPI master and UART tx/rx modules, built and tested on the Tang Nano 9K.
+- A from-scratch UART tx/rx pair, built and tested on the Tang Nano 9K.
 - A Python (Tkinter) viewer for the captured waveform, pulse-width stats, and CSV export.
 
 Not built yet:
 - Protocol decoders (UART, I2C, SPI framing on top of the raw edges).
 - The identification logic that would actually tell you "this looks like I2C" from the capture.
+- Switching the pull-ups on/off from software. `ctrl_a`/`ctrl_b` exist and are wired to the PCB, but they're currently hardwired off - nothing decides when to turn a pull-up on yet.
 
 ## The PCB
 
 A shield that sits on top of the Tang Nano 9K. It has two probe channels and a 4-pin socket for the device under test.
 <p>
-<img src="Assets/Images/PCBFrontWithComponents.png.png" width="32%"> <img src="Assets/Images/PCBFrontWithoutComponents.png" width="32%"> <img src="Assets/Images/PCBBack.png" width="32%">
+<img src="hardware/images/PCBFrontWithComponents.png.png" width="32%"> <img src="hardware/images/PCBFrontWithoutComponents.png" width="32%"> <img src="hardware/images/PCBBack.png" width="32%">
 Each part on the probe lines is there for a specific reason:
 </p>
 - **220 ohm series resistor** on each probe line. The tool is meant to connect to devices whose voltage and drive strength are unknown, so the series resistor limits current if something unexpected is being driven.
@@ -30,18 +31,18 @@ Each part on the probe lines is there for a specific reason:
 
 ## Pin assignments
 
-| Tang Nano 9K pin | Signal  | Notes |
+| Tang Nano 9K pin | Signal    | Notes |
 |---|---|---|
-| 54 | Ctrl_B | Active low. Pulling low turns on channel B's pull-up MOSFET. |
-| 55 | Ctrl_A | Active low. Pulling low turns on channel A's pull-up MOSFET. |
-| 56 | Pin_A  | Probe channel A. |
-| 57 | Pin_B  | Probe channel B. |
+| 54 | `ctrl_b`   | Active low. Pulling low turns on channel B's pull-up MOSFET. |
+| 55 | `ctrl_a`   | Active low. Pulling low turns on channel A's pull-up MOSFET. |
+| 56 | `probe_a`  | Probe channel A. |
+| 57 | `probe_b`  | Probe channel B. |
 
 Active low because these drive P-channel MOSFETs, which turn on when their gate is pulled low.
 
 ## Using it
 
-Plug the unknown device into the 4-pin socket. A 4-pin device fills all four positions. A 3-pin device leaves Pin_A empty.
+Plug the unknown device into the 4-pin socket. A 4-pin device fills all four positions. A 3-pin device leaves `probe_a` empty.
 
 ## Known limitations
 
