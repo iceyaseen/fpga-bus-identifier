@@ -20,10 +20,13 @@ Not built yet:
 ## The PCB
 
 A shield that sits on top of the Tang Nano 9K. It has two probe channels and a 4-pin socket for the device under test.
-<p>
-<img src="hardware/images/PCBFrontWithComponents.png.png" width="32%"> <img src="hardware/images/PCBFrontWithoutComponents.png" width="32%"> <img src="hardware/images/PCBBack.png" width="32%">
+<p align="center">
+<img src="hardware/images/PCBFrontWithComponents.png.png" width="45%">  <img src="hardware/images/PCBBack.png" width="45%">
+<img src="hardware/images/PCBFrontWithoutComponents.png" width="65%">
+<br>
 Each part on the probe lines is there for a specific reason:
 </p>
+
 - **220 ohm series resistor** on each probe line. The tool is meant to connect to devices whose voltage and drive strength are unknown, so the series resistor limits current if something unexpected is being driven.
 - **Schottky clamp diodes (1N5819)** to 3.3V and GND on each probe line, so an over-voltage device can't reach the FPGA pin directly. Schottky specifically, not an ordinary diode: an ordinary diode clamps around 4.0V, which is already too high for this FPGA's inputs.
 - **4.7k pull-ups switched by P-channel MOSFETs.** This is the part that needs explaining: to find out whether an unknown device already has its own pull-up, you need to disconnect ours first and see what the line does on its own. A fixed pull-up would make that measurement impossible, so it's switchable instead.
