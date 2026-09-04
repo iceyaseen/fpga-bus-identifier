@@ -12,11 +12,10 @@ Working today:
 - A from-scratch UART tx/rx pair, built and tested on the Tang Nano 9K.
 - A 256-entry, block-RAM-backed capture FIFO, with high-water mark reported in the status reply.
 - A PySide6 + pyqtgraph host GUI (dark instrument theme): live or offline (loaded from CSV) waveform view with pan/zoom/cursor/two draggable markers, a log-scale/zoomable pulse-width histogram, CSV export, and a "protocol hint" panel that reads the dominant pulse width and reports the closest matching clock/UART baud/1-Wire pulse - timing arithmetic only, not protocol decoding.
+- An active I2C master: bidirectional open-drain probe drivers, software-switchable pull-ups, an electrical pre-scan (own pull-up / needs ours / held low / floating, per channel, before any bus traffic), and a 0x08-0x77 address sweep that reports every address that ACKs. Driven from the host's "Scan I2C" button; verified in simulation against a fake I2C slave (exactly one address found, START/STOP/ACK timing checked against spec) and confirmed on real hardware against an MLX90614 at 0x5A.
 
 Not built yet:
-- Protocol decoders (UART, I2C, SPI framing on top of the raw edges).
-- The identification logic that would actually tell you "this looks like I2C" from the capture - the hint panel above is a timing-only nudge toward that, not the real thing.
-- Switching the pull-ups on/off from software. `ctrl_a`/`ctrl_b` exist and are wired to the PCB, but they're currently hardwired off - nothing decides when to turn a pull-up on yet.
+- Reading actual data back from a found device (the I2C master currently only does the one-byte address-probe transaction a scan needs) - UART/SPI as active protocols, and the identification logic that would tell you "this looks like I2C" purely from a passive capture (the hint panel is a timing-only nudge toward that, not the real thing).
 
 ## Host software
 
@@ -73,6 +72,29 @@ Active low because these drive P-channel MOSFETs, which turn on when their gate 
 ## Using it
 
 Plug the unknown device into the 4-pin socket. A 4-pin device fills all four positions. A 3-pin device leaves `probe_a` empty.
+
+## I2C scanning
+
+Click **Scan I2C** in the host app. It runs two steps automatically:
+
+1. **Electrical pre-scan** - before any bus traffic, each channel is classified purely by watching pull-up behaviour: *has its own pull-up* (reads high with ours off), *needs ours* (low/floating with ours off, clean high once ours switches on), *held low* (still low even with our pull-up on - a device driving it, or a short), or *floating* (unstable with no pull-up at all - nothing connected). This tells you whether the device is even I2C-shaped before wasting time on an address sweep.
+2. **Address sweep** - START, address + write bit, check for ACK, STOP, for every address 0x08-0x77 (the valid 7-bit range). Every address that ACKs gets reported; an empty result is reported as "No devices found", not left ambiguous.
+
+**Which probe is SDA and which is SCL is not auto-detected** - it's a host-side toggle ("SDA/SCL mapping: Normal (A=SDA, B=SCL) / Swapped (A=SCL, B=SDA)"), simpler and more transparent than guessing. If a scan against a known-good device finds nothing, flip the mapping and scan again. Verified against a real MLX90614 infrared thermometer (address 0x5A) on real hardware.
+
+The scan's own generated I2C traffic is visible in the waveform view too (make sure capture is running - the "Scan I2C" button starts it automatically) - a good way to confirm the master is generating correct signals, not just trusting the reported result.
+
+New host commands, single bytes like the existing ones (no framing needed on that side):
+
+| Command | Effect |
+|---|---|
+| `A` / `a` | channel A pull-up on / off |
+| `B` / `b` | channel B pull-up on / off |
+| `N` / `W` | normal / swapped SDA-SCL pin mapping |
+| `E` | run the electrical pre-scan |
+| `I` | run the address sweep |
+
+`E` and `I` are long-running, so unlike every other command their ACK is deferred until the operation actually finishes, not when the byte arrives - that's what lets the host safely chain pre-scan -> sweep off the pre-scan's own ACK. Two new frame types carry the results: `0xA9 PRESCAN_RESULT` (channel, category) and `0xAA ADDR_HIT` (one address that ACKed) - see `host/protocol.py` for the exact wire format, which follows the same `[MARKER][PAYLOAD][CHECKSUM]` scheme as everything else.
 
 ## Known limitations
 

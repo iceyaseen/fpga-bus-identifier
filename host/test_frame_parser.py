@@ -14,7 +14,9 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from protocol import FrameParser, MARKER_EDGE, MARKER_STAT, MARKER_ACK, MARKER_ERR
+from protocol import (
+    FrameParser, MARKER_EDGE, MARKER_STAT, MARKER_ACK, MARKER_ERR, MARKER_PRESCAN, MARKER_ADDRHIT,
+)
 
 
 def build_edge(ts, state):
@@ -37,6 +39,16 @@ def build_ack(cmd):
 def build_err(code, bad):
     checksum = (MARKER_ERR + code + bad) & 0xFF
     return bytes([MARKER_ERR, code, bad, checksum])
+
+
+def build_prescan(channel, category):
+    checksum = (MARKER_PRESCAN + channel + category) & 0xFF
+    return bytes([MARKER_PRESCAN, channel, category, checksum])
+
+
+def build_addrhit(addr):
+    checksum = (MARKER_ADDRHIT + addr) & 0xFF
+    return bytes([MARKER_ADDRHIT, addr, checksum])
 
 
 def feed_in_random_chunks(parser, data):
@@ -140,8 +152,9 @@ def main():
         expect(ts0 == 10 and ts1 == 20,
                f"false marker match: expected timestamps 10,20 got {ts0},{ts1}", failures)
 
-    # ---- test 5: mixed frame types (STAT/ACK/ERR) interleaved with
-    #      EDGE, plus junk, still all decode correctly and in order ----
+    # ---- test 5: mixed frame types (STAT/ACK/ERR/PRESCAN/ADDRHIT)
+    #      interleaved with EDGE, plus junk, still all decode correctly
+    #      and in order ----
     parser = FrameParser()
     stream = bytearray()
     stream += os.urandom(3)
@@ -150,11 +163,18 @@ def main():
     stream += os.urandom(2)
     stream += build_stat(1, 57, 256)
     stream += build_err(1, 0x5A)
+    stream += build_prescan(0, 1)
+    stream += build_addrhit(0x5A)
     stream += build_edge(2, 2)
     events = feed_in_random_chunks(parser, bytes(stream))
     kinds = [k for k, _ in events]
-    expect(kinds == ["EDGE", "ACK", "STAT", "ERR", "EDGE"],
-           f"mixed frame types: expected [EDGE,ACK,STAT,ERR,EDGE], got {kinds}", failures)
+    expect(kinds == ["EDGE", "ACK", "STAT", "ERR", "PRESCAN", "ADDRHIT", "EDGE"],
+           f"mixed frame types: expected [EDGE,ACK,STAT,ERR,PRESCAN,ADDRHIT,EDGE], got {kinds}", failures)
+    for kind, payload in events:
+        if kind == "PRESCAN":
+            expect(payload == bytes([0, 1]), f"PRESCAN payload wrong: {payload!r}", failures)
+        elif kind == "ADDRHIT":
+            expect(payload == bytes([0x5A]), f"ADDRHIT payload wrong: {payload!r}", failures)
 
     # ---- test 6: pure random noise, no valid frames at all - parser
     #      must terminate (not hang/crash) and emit zero events ----

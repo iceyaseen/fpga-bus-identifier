@@ -48,6 +48,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from protocol import (
     NUM_CHANNELS, TICKS_PER_US, FIFO_DEPTH_DEFAULT,
     FrameParser, decode_edge, decode_stat, decode_ack, decode_err, ERR_CODE_NAMES,
+    decode_prescan, decode_addrhit, PRESCAN_CATEGORY_NAMES,
 )
 from hint import hint_text, DISCLAIMER
 from timefmt import format_duration_us, best_unit_for
@@ -198,6 +199,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fifo_high_water = 0
         self.fifo_depth = FIFO_DEPTH_DEFAULT
 
+        # ---- I2C scan state (Part B4) ----
+        self.prescan_results = {}   # channel (0/1) -> category code
+        self.found_addresses = []   # 7-bit addresses that ACKed, in scan order
+        self.i2c_scan_stage = None  # None idle; 'prescan' waiting for E's ack; 'sweep' waiting for I's ack
+
         # ---- stats / histogram state ----
         self.stats_dirty = True
         self.pulse_widths = {ch: [] for ch in range(NUM_CHANNELS)}
@@ -329,6 +335,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_btn = QtWidgets.QPushButton("Reset")
         self.reset_btn.clicked.connect(self._cmd_reset)
         lay.addWidget(self.reset_btn)
+
+        lay.addSpacing(10)
+        lay.addWidget(QtWidgets.QLabel("<b>I2C</b>"))
+        self.scan_i2c_btn = QtWidgets.QPushButton("Scan I2C")
+        self.scan_i2c_btn.setObjectName("Accent")
+        self.scan_i2c_btn.setToolTip("Runs the electrical pre-scan, then sweeps addresses 0x08-0x77")
+        self.scan_i2c_btn.clicked.connect(self._cmd_scan_i2c)
+        lay.addWidget(self.scan_i2c_btn)
+
+        pu_row = QtWidgets.QHBoxLayout()
+        self.pullup_a_check = QtWidgets.QCheckBox("Pull-up A")
+        self.pullup_a_check.toggled.connect(self._on_pullup_a_toggled)
+        pu_row.addWidget(self.pullup_a_check)
+        self.pullup_b_check = QtWidgets.QCheckBox("Pull-up B")
+        self.pullup_b_check.toggled.connect(self._on_pullup_b_toggled)
+        pu_row.addWidget(self.pullup_b_check)
+        lay.addLayout(pu_row)
+
+        # which physical probe channel is SDA vs SCL isn't auto-detected
+        # (see i2c_scanner section of the README for why) - if a scan
+        # comes back empty, try the other mapping and scan again
+        lay.addWidget(QtWidgets.QLabel("SDA/SCL mapping:"))
+        self.pin_map_group = QtWidgets.QButtonGroup(panel)
+        self.pin_map_normal_radio = QtWidgets.QRadioButton("Normal (A=SDA, B=SCL)")
+        self.pin_map_normal_radio.setChecked(True)
+        self.pin_map_swapped_radio = QtWidgets.QRadioButton("Swapped (A=SCL, B=SDA)")
+        self.pin_map_group.addButton(self.pin_map_normal_radio, 0)
+        self.pin_map_group.addButton(self.pin_map_swapped_radio, 1)
+        self.pin_map_normal_radio.toggled.connect(self._on_pin_map_changed)
+        lay.addWidget(self.pin_map_normal_radio)
+        lay.addWidget(self.pin_map_swapped_radio)
 
         lay.addSpacing(10)
         lay.addWidget(QtWidgets.QLabel("<b>Data</b>"))
@@ -699,8 +736,50 @@ class MainWindow(QtWidgets.QMainWindow):
         hv.addWidget(disclaimer_label)
         v.addWidget(hint_box)
 
+        i2c_box = QtWidgets.QGroupBox("I2C Scan")
+        iv = QtWidgets.QVBoxLayout(i2c_box)
+        self.i2c_prescan_a_label = QtWidgets.QLabel("Channel A: -")
+        self.i2c_prescan_b_label = QtWidgets.QLabel("Channel B: -")
+        for lbl in (self.i2c_prescan_a_label, self.i2c_prescan_b_label):
+            lbl.setFont(mono_font())
+            lbl.setWordWrap(True)
+            iv.addWidget(lbl)
+        self.i2c_addresses_label = QtWidgets.QLabel("Run a scan to look for devices.")
+        self.i2c_addresses_label.setFont(mono_font(10, bold=True))
+        self.i2c_addresses_label.setWordWrap(True)
+        iv.addWidget(self.i2c_addresses_label)
+        v.addWidget(i2c_box)
+
         v.addStretch(1)
         return panel
+
+    def _refresh_i2c_panel(self):
+        def describe(channel):
+            if channel not in self.prescan_results:
+                return "-"
+            return PRESCAN_CATEGORY_NAMES.get(self.prescan_results[channel], "?")
+
+        self.i2c_prescan_a_label.setText(f"Channel A: {describe(0)}")
+        self.i2c_prescan_b_label.setText(f"Channel B: {describe(1)}")
+
+        if self.i2c_scan_stage == "prescan":
+            self.i2c_addresses_label.setText("Running electrical pre-scan...")
+            self.i2c_addresses_label.setStyleSheet(f"color: {COLOR_TEXT};")
+        elif self.i2c_scan_stage == "sweep":
+            self.i2c_addresses_label.setText(f"Sweeping addresses... {len(self.found_addresses)} found so far")
+            self.i2c_addresses_label.setStyleSheet(f"color: {COLOR_TEXT};")
+        elif self.found_addresses:
+            addrs = ", ".join(f"0x{a:02X}" for a in self.found_addresses)
+            self.i2c_addresses_label.setText(f"Found {len(self.found_addresses)} device(s): {addrs}")
+            self.i2c_addresses_label.setStyleSheet(f"color: {COLOR_ACCENT};")
+        elif self.prescan_results:
+            # a scan has actually completed with zero hits - say so
+            # plainly rather than leaving it looking like nothing happened
+            self.i2c_addresses_label.setText("No devices found.")
+            self.i2c_addresses_label.setStyleSheet(f"color: {COLOR_WARN};")
+        else:
+            self.i2c_addresses_label.setText("Run a scan to look for devices.")
+            self.i2c_addresses_label.setStyleSheet(f"color: {COLOR_TEXT};")
 
     def _build_status_strip(self):
         bar = self.statusBar()
@@ -791,16 +870,30 @@ class MainWindow(QtWidgets.QMainWindow):
     #  Port list
     # ========================================================
     def _refresh_ports(self, preselect=None):
-        ports = [p.device for p in serial.tools.list_ports.comports()]
+        ports_info = list(serial.tools.list_ports.comports())
+        ports = [p.device for p in ports_info]
         self.port_combo.clear()
         self.port_combo.addItems(ports)
         if preselect and preselect in ports:
             self.port_combo.setCurrentText(preselect)
-        else:
-            for i, p in enumerate(ports):
-                if "ttyUSB" in p or "ttyACM" in p:
-                    self.port_combo.setCurrentIndex(i)
-                    break
+            return
+
+        # boards with an onboard FTDI-based JTAG+UART combo (e.g. the Tang
+        # Nano 9K) expose BOTH as ttyUSB devices, with the JTAG interface
+        # usually sorting first - auto-connecting to it instead of the
+        # real UART reads back as pure noise (confirmed: this is exactly
+        # what "the console only shows bytes, no text" turned out to be).
+        # `description` is useless here (both interfaces report the same
+        # generic "JTAG Debugger" string on this hardware), but pyserial's
+        # `interface` field (from the USB interface descriptor, Linux
+        # only) reliably differs: the JTAG interface names itself, the
+        # UART interface leaves it blank. Falls back to the old
+        # first-match behaviour wherever `interface` isn't populated.
+        candidates = [p for p in ports_info if "ttyUSB" in p.device or "ttyACM" in p.device]
+        non_jtag = [p for p in candidates if not (p.interface and "jtag" in p.interface.lower())]
+        pick = non_jtag[0] if non_jtag else (candidates[0] if candidates else None)
+        if pick:
+            self.port_combo.setCurrentText(pick.device)
 
     # ========================================================
     #  Connect / disconnect
@@ -880,7 +973,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._log_system(f"Disconnected: {reason}" if reason else "Disconnected")
 
     def _set_controls_enabled(self, connected):
-        for b in (self.start_btn, self.stop_btn, self.reset_btn):
+        for b in (self.start_btn, self.stop_btn, self.reset_btn, self.scan_i2c_btn,
+                  self.pullup_a_check, self.pullup_b_check,
+                  self.pin_map_normal_radio, self.pin_map_swapped_radio):
             b.setEnabled(connected)
 
     # ========================================================
@@ -909,6 +1004,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _cmd_status(self):
         self._send_byte(ord("V"))
+
+    def _on_pullup_a_toggled(self, checked):
+        self._send_byte(ord("A") if checked else ord("a"))
+
+    def _on_pullup_b_toggled(self, checked):
+        self._send_byte(ord("B") if checked else ord("b"))
+
+    def _on_pin_map_changed(self, checked):
+        # fires from the "Normal" radio's toggled signal: checked=True
+        # means Normal was just selected, checked=False means Swapped
+        # was (radio-button exclusivity guarantees exactly one of the
+        # two toggled signals fires per click)
+        self._send_byte(ord("N") if checked else ord("W"))
+
+    def _cmd_scan_i2c(self):
+        """The Part 6 'Scan I2C' button: runs the pre-scan, then
+        (automatically, once the pre-scan's ACK confirms it's done -
+        see _handle_frame's ACK case) the address sweep. Also makes
+        sure capture is running first, so the scan's own generated
+        waveform is visible - a good verification the master is
+        generating correct signals, and free once capture is already on."""
+        if not self.connected:
+            return
+        self.prescan_results = {}
+        self.found_addresses = []
+        self.i2c_scan_stage = "prescan"   # 'prescan' -> waiting for E's ack; 'sweep' -> waiting for I's ack
+        self._refresh_i2c_panel()
+        self._send_byte(ord("S"))
+        self._send_byte(ord("E"))
+        self._log_system("I2C scan: running electrical pre-scan...")
 
     # ========================================================
     #  Recurring UI-thread tick: drain the queue, batch the redraw
@@ -1009,10 +1134,37 @@ class MainWindow(QtWidgets.QMainWindow):
             except ValueError:
                 cmd_ch = "?"
             self._log(f"[ACK] {cmd_ch}", COLOR_ACCENT)
+            # 'E'/'I' acks are DEFERRED by the FPGA until the operation
+            # they kicked off actually finishes (see top.v) - that's
+            # what makes this ack the right moment to chain into the
+            # address sweep, or to declare the whole scan done
+            if cmd_ch == "E" and self.i2c_scan_stage == "prescan":
+                self.i2c_scan_stage = "sweep"
+                self._log_system("I2C scan: pre-scan done, sweeping addresses 0x08-0x77...")
+                self._send_byte(ord("I"))
+            elif cmd_ch == "I" and self.i2c_scan_stage == "sweep":
+                self.i2c_scan_stage = None
+                if self.found_addresses:
+                    addrs = ", ".join(f"0x{a:02X}" for a in self.found_addresses)
+                    self._log_system(f"I2C scan: done - found {len(self.found_addresses)} device(s): {addrs}")
+                else:
+                    self._log_system("I2C scan: done - no devices found")
+            self._refresh_i2c_panel()
         elif kind == "ERR":
             code, bad = decode_err(payload)
             name = ERR_CODE_NAMES.get(code, f"code {code}")
             self._log(f"[ERROR] {name}: offending byte 0x{bad:02X}", COLOR_ERROR)
+        elif kind == "PRESCAN":
+            channel, category = decode_prescan(payload)
+            self.prescan_results[channel] = category
+            label = "A" if channel == 0 else "B"
+            self._log(f"[PRESCAN] channel {label}: {PRESCAN_CATEGORY_NAMES.get(category, category)}", "#4FA0D8")
+            self._refresh_i2c_panel()
+        elif kind == "ADDRHIT":
+            addr = decode_addrhit(payload)
+            self.found_addresses.append(addr)
+            self._log(f"[I2C] found device at 0x{addr:02X}", COLOR_ACCENT)
+            self._refresh_i2c_panel()
         return False
 
     def _add_record(self, ts, state):
@@ -1256,6 +1408,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._log_buffer.clear()
         self.curve_a.setData([], [])
         self.curve_b.setData([], [])
+        self.prescan_results = {}
+        self.found_addresses = []
+        self.i2c_scan_stage = None
+        self._refresh_i2c_panel()
         self._log_system("Display cleared (FPGA state untouched - use Reset to reset the timestamp counter)")
 
     def _save_csv(self):
