@@ -2,150 +2,130 @@
 # ============================================================
 #  GUI logic-analyser viewer for the Tang Nano 9K edge-capture engine.
 #
-#  Tkinter only (ships with Python) + pyserial. No other deps.
+#  PySide6 + pyqtgraph + pyserial. See protocol.py for the wire format
+#  (framing/checksums/resync) - this file is UI only and never
+#  reimplements that parsing.
 #
-#  ---- wire protocol (must match top.v exactly) ----
-#  Every message is [MARKER][PAYLOAD...][CHECKSUM]. The marker byte
-#  alone tells you both "this is a frame" and, since payload length is
-#  fixed per marker, exactly how many more bytes to expect.
+#  Layout (see _build_ui):
+#    +----------+----------------------------------------------+
+#    | sidebar  |  waveform (P_A / P_B, pan+zoom, cursor,       |
+#    | (connect,|   two draggable markers)                     |
+#    |  start/  +---------------------+------------------------+
+#    |  stop/   | pulse-width         | stats + protocol hint  |
+#    |  reset,  | histogram           | panel                  |
+#    |  csv)    | (log-scale count,   |                        |
+#    |          |  zoomable time axis)|                        |
+#    +----------+---------------------+------------------------+
+#    | status strip: link dot, rate, high-water, overflow dot  |
+#    +-----------------------------------------------------------+
 #
-#    0xA5 EDGE_RECORD  payload=5B (ts[31:24..7:0], state)      total 7B
-#    0xA6 STATUS_REPLY payload=5B (overflow, high_water(2B),
-#                                  fifo_depth(2B))              total 7B
-#    0xA7 ACK          payload=1B (which command: 'S'/'X'/'R')  total 3B
-#    0xA8 ERROR        payload=2B (error code, offending byte)  total 4B
+#  Serial I/O lives entirely on a background thread (SerialReader)
+#  that only ever reads bytes and pushes them onto a queue.Queue - it
+#  never touches a Qt widget. A QTimer on the UI thread drains that
+#  queue at a fixed ~20 Hz rate, feeds bytes to FrameParser, and only
+#  then updates widgets - so a flood of records batches into one
+#  redraw instead of one redraw per record.
 #
-#  CHECKSUM = 8-bit sum (mod 256) of marker + every payload byte.
-#
-#  Resync: on a checksum mismatch (false marker match, or real
-#  corruption), advance exactly ONE byte and rescan - not the frame's
-#  whole claimed length - so the next real frame is never skipped.
-#  FrameParser below is a plain, GUI-free class specifically so this
-#  behaviour can be unit-tested without a display (see the project's
-#  test script that feeds it deliberately corrupted data).
-#
-#  Commands TO the FPGA are plain single bytes: 'S' start, 'X' stop,
-#  'R' reset timestamp+overflow, 'V' request status. No framing needed
-#  on that side - it's a low-rate trusted control channel, not the
-#  noisy high-rate stream that actually needs resync robustness.
-#
-#  Needs pyserial:  pip install pyserial
+#  Needs: pip install PySide6 pyqtgraph pyserial
 # ============================================================
-
 import sys
-import time
+import os
+import csv
+import html
 import math
-import struct
+import time
 import threading
 import queue
-import csv
-import bisect
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+import numpy as np
+from PySide6 import QtCore, QtGui, QtWidgets
+import pyqtgraph as pg
 
 import serial
 import serial.tools.list_ports
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from protocol import (
+    NUM_CHANNELS, TICKS_PER_US, FIFO_DEPTH_DEFAULT,
+    FrameParser, decode_edge, decode_stat, decode_ack, decode_err, ERR_CODE_NAMES,
+)
+from hint import hint_text, DISCLAIMER
+from timefmt import format_duration_us, best_unit_for
 
-# ---- protocol constants - keep in sync with top.v ----
-NUM_CHANNELS = 2          # must match NUM_CHANNELS in top.v
-TICKS_PER_US = 27.0       # 27 MHz free-running timestamp counter
+# ---- dark instrument theme - exact palette from the spec ----
+COLOR_BG = "#1A1D21"
+COLOR_PANEL = "#24282E"
+COLOR_GRID = "#2E333A"
+COLOR_TEXT = "#D8DEE4"
+COLOR_CH_A = "#7FD962"
+COLOR_CH_B = "#4FC3F7"
+COLOR_ACCENT = "#7FD962"
+COLOR_WARN = "#F5A05C"
+COLOR_ERROR = "#E06C75"
+COLOR_MARKER = "#E06C75"   # not in the base 8, chosen so marker lines never
+                           # visually blend with a channel trace or the grid
+COLOR_MUTED_TEXT = "#7B8794"   # for de-emphasised text (the hint disclaimer) - COLOR_GRID
+                                # is meant for plot gridlines and is nearly invisible as text
+                                # against the similarly-dark COLOR_PANEL background
 
-MARKER_EDGE = 0xA5
-MARKER_STAT = 0xA6
-MARKER_ACK  = 0xA7
-MARKER_ERR  = 0xA8
+MONO_FONT_FAMILY = "DejaVu Sans Mono"
 
-# marker -> (name, bytes AFTER the marker i.e. payload+checksum length)
-FRAME_INFO = {
-    MARKER_EDGE: ("EDGE", 6),
-    MARKER_STAT: ("STAT", 6),
-    MARKER_ACK:  ("ACK", 2),
-    MARKER_ERR:  ("ERR", 3),
-}
+UI_HZ = 20
+UI_PERIOD_MS = int(1000 / UI_HZ)     # batched redraw rate
+STATS_PERIOD_MS = 500                # stats/histogram/hint recompute rate
+BLINK_PERIOD_MS = 600                # "link alive" dot blink rate
+STATUS_POLL_MS = 1000                # how often we send 'V' while connected
+RESYNC_MIN_SETTLE_SECONDS = 0.2       # see _connect()/_tick(): minimum time before an empty
+                                      # rx_queue counts as "caught up" rather than "reader
+                                      # thread hasn't attempted its first read yet" - comfortably
+                                      # more than that thread's own 50ms read timeout
 
-ERR_CODE_NAMES = {1: "unknown command"}
-
-UI_HZ        = 20
-UI_PERIOD_MS = int(1000 / UI_HZ)
-STATS_PERIOD_MS = 500      # recompute the stats panel at most twice a second
-
-LOG_MAX_LINES     = 2000
-WAVE_MAX_SAMPLES  = 20000   # cap so waveform redraw cost is bounded regardless of session length
-
-
-# ============================================================
-#  Pure frame parser - no I/O, no Tkinter, fully unit-testable.
-#  Feed it bytes as they arrive; get back a list of (kind, payload)
-#  events. Tracks resync/checksum-failure counts for diagnostics.
-# ============================================================
-class FrameParser:
-    def __init__(self):
-        self.buf = bytearray()
-        self.resync_count = 0          # bytes dropped while scanning for a marker
-        self.checksum_fail_count = 0   # frames that matched a marker but failed checksum
-
-    def feed(self, data):
-        self.buf.extend(data)
-        events = []
-        while self.buf:
-            b0 = self.buf[0]
-            info = FRAME_INFO.get(b0)
-            if info is None:
-                # not a marker byte at all - this IS the resync scan
-                del self.buf[0]
-                self.resync_count += 1
-                continue
-
-            _name, rest_len = info
-            total_len = 1 + rest_len
-            if len(self.buf) < total_len:
-                break   # wait for the rest of the frame on the next feed()
-
-            frame = bytes(self.buf[:total_len])
-            marker = frame[0]
-            payload = frame[1:-1]
-            checksum = frame[-1]
-            computed = (marker + sum(payload)) & 0xFF
-
-            if computed == checksum:
-                events.append((FRAME_INFO[marker][0], payload))
-                del self.buf[:total_len]
-            else:
-                # false marker match, or real corruption - resync by
-                # exactly one byte, NOT the whole claimed frame length,
-                # so a real frame overlapping this window isn't skipped
-                self.checksum_fail_count += 1
-                self.resync_count += 1
-                del self.buf[0]
-        return events
+WAVE_MAX_SAMPLES = 20000             # cap so redraw cost is bounded regardless of session length
 
 
-def decode_edge(payload):
-    ts = struct.unpack(">I", payload[0:4])[0]
-    state = payload[4]
-    return ts, state
+def mono_font(size=10, bold=False):
+    f = QtGui.QFont(MONO_FONT_FAMILY, size)
+    f.setStyleHint(QtGui.QFont.Monospace)
+    f.setBold(bold)
+    return f
 
 
-def decode_stat(payload):
-    overflow = payload[0]
-    high_water = struct.unpack(">H", payload[1:3])[0]
-    depth = struct.unpack(">H", payload[3:5])[0]
-    return overflow, high_water, depth
+class TimeAxisItem(pg.AxisItem):
+    """A time axis whose tick labels use the SAME ns/us/ms/s scheme as
+    the cursor/marker/stats labels (format_duration_us / best_unit_for)
+    instead of pyqtgraph's own SI-prefix system. That's not cosmetic:
+    plotting already-converted microseconds with units="us" and letting
+    pyqtgraph auto-prefix produces nonsense like "kus"/"Mus" (compounding
+    an SI prefix onto a unit that's already one), and even with that
+    disabled, pyqtgraph's own scaling would use different thresholds
+    than our labels, so the axis and the readouts would disagree about
+    what to call the same instant.
 
-
-def decode_ack(payload):
-    return payload[0]
-
-
-def decode_err(payload):
-    return payload[0], payload[1]
+    The UNIT is picked from the values' own magnitude (so "~80s into
+    the capture" stays visible even zoomed in tight), but the decimal
+    PRECISION is picked from `spacing` - how far apart adjacent ticks
+    actually are - not from the values themselves. Getting that wrong
+    is exactly the failure mode this app needs to handle well: zoom in
+    on a 5us burst that happens 80 REAL SECONDS into a capture, and
+    every tick's absolute value rounds to the same "80.0 s" unless the
+    precision comes from the (tiny) spacing instead.
+    """
+    def tickStrings(self, values, scale, spacing):
+        if not values:
+            return []
+        ref = max((abs(v) for v in values), default=0.0)
+        unit, unit_scale = best_unit_for(ref)
+        spacing_in_unit = spacing / unit_scale
+        decimals = 2
+        if spacing_in_unit > 0:
+            decimals = max(0, min(9, int(math.ceil(-math.log10(spacing_in_unit))) + 1))
+        return [f"{v / unit_scale:.{decimals}f} {unit}" for v in values]
 
 
 # ============================================================
 #  Background thread: read raw bytes off the serial port, hand them
-#  to the UI thread via a queue. Never touches a Tkinter widget.
+#  to the UI thread via a queue. Never touches a Qt widget - the UI
+#  thread (MainWindow._tick) is the only thing allowed to do that.
 # ============================================================
 class SerialReader(threading.Thread):
     def __init__(self, ser, out_queue, stop_event):
@@ -166,15 +146,37 @@ class SerialReader(threading.Thread):
 
 
 # ============================================================
-#  Main application
+#  Small "indicator light" widget: a filled circle whose colour is
+#  set programmatically. Used for the link-alive dot (blinks while
+#  connected) and the overflow dot (solid once overflow has latched).
 # ============================================================
-class App:
-    CHANNEL_COLORS = ["#1a73e8", "#e8641a", "#1aa33a", "#a31ae8", "#c0c000", "#e81a5a"]
+class Dot(QtWidgets.QLabel):
+    def __init__(self, diameter=12, parent=None):
+        super().__init__(parent)
+        self.diameter = diameter
+        self.setFixedSize(diameter, diameter)
+        self._color = QtGui.QColor(COLOR_GRID)
 
-    def __init__(self, root, initial_port=None):
-        self.root = root
-        root.title("FPGA Edge Capture Viewer")
-        root.geometry("1050x780")
+    def set_color(self, hex_color):
+        self._color = QtGui.QColor(hex_color)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setBrush(QtGui.QBrush(self._color))
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.drawEllipse(0, 0, self.diameter, self.diameter)
+
+
+# ============================================================
+#  Main window
+# ============================================================
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self, initial_port=None):
+        super().__init__()
+        self.setWindowTitle("FPGA Edge Capture Viewer")
+        self.resize(1400, 900)
 
         # ---- connection state ----
         self.ser = None
@@ -183,254 +185,647 @@ class App:
         self.rx_queue = queue.Queue()
         self.parser = FrameParser()
         self.connected = False
+        self.raw_mode = False
 
         # ---- capture state / unified record store (live or loaded CSV) ----
         self.prev_ts = None
-        self.records = []                  # (ts_ticks, state) - unbounded, source of truth for CSV save + stats
-        self.wave_records = []             # capped view of self.records, for waveform redraw cost
-        self.recv_times = []               # wall-clock arrival times (monotonic), for edges/sec
+        self.records = []          # (ts_ticks, state) - unbounded, source of truth for CSV save + stats
+        self.wave_records = []     # capped view of self.records, for waveform redraw cost
+        self.recv_times = []       # wall-clock arrival times (monotonic), for records/sec
         self.records_received = 0
         self.last_record_wall_time = None
         self.overflow_since_reset = False
         self.fifo_high_water = 0
-        self.fifo_depth = 0                # reported by the FPGA itself, not assumed
+        self.fifo_depth = FIFO_DEPTH_DEFAULT
 
-        # ---- waveform view state ----
-        self.us_per_pixel = 50.0
-        self.view_end_us = None            # right edge of the visible window; None = follow live data
-        self.cursor_us = None
-        self.markers = []                  # up to 2 placed marker timestamps (us)
-        self._pan_last_x = None
-
-        # ---- stats state ----
+        # ---- stats / histogram state ----
         self.stats_dirty = True
         self.pulse_widths = {ch: [] for ch in range(NUM_CHANNELS)}
         self.shortest_pulse_us = None
         self.longest_gap_us = None
-        self.hist_channel = tk.IntVar(value=0)
-        self.hist_view_min = None          # us; None = auto (full range of selected channel's data)
+        self.hist_channel = 0
+        self.hist_view_min = None   # None = auto (full range of selected channel)
         self.hist_view_max = None
-        self._hist_pan_last_x = None
+        self._hist_redraw_in_progress = False   # guards against our own setXRange() re-triggering the handler below
+
+        # ---- resync-vs-startup bookkeeping (see _connect()/_tick()) ----
+        self._resync_baseline = None
+
+        # ---- waveform navigation state ----
+        self.follow_latest = True       # oscilloscope "roll mode": view tracks the newest data
+        self._wave_program_range_change = False   # guards our own setXRange() calls, same idea as the histogram's
+
+        # ---- console panel state ----
+        self._log_paused = False
+        self._log_buffer = []   # (text, color) queued while paused - nothing is lost, just not shown yet
 
         self._build_ui()
         self._refresh_ports(preselect=initial_port)
         self._set_controls_enabled(False)
 
-        self.root.after(UI_PERIOD_MS, self._tick)
-        self.root.after(STATS_PERIOD_MS, self._stats_tick)
+        self.ui_timer = QtCore.QTimer(self)
+        self.ui_timer.timeout.connect(self._tick)
+        self.ui_timer.start(UI_PERIOD_MS)
 
-    # --------------------------------------------------------
+        self.stats_timer = QtCore.QTimer(self)
+        self.stats_timer.timeout.connect(self._stats_tick)
+        self.stats_timer.start(STATS_PERIOD_MS)
+
+        self.blink_timer = QtCore.QTimer(self)
+        self.blink_timer.timeout.connect(self._blink_tick)
+        self.blink_timer.start(BLINK_PERIOD_MS)
+        self._blink_on = False
+
+        self.status_poll_timer = QtCore.QTimer(self)
+        self.status_poll_timer.timeout.connect(self._cmd_status)
+
+    # ========================================================
     #  UI construction
-    # --------------------------------------------------------
+    # ========================================================
     def _build_ui(self):
-        top = ttk.Frame(self.root, padding=6)
-        top.pack(side="top", fill="x")
+        self.setStyleSheet(f"""
+            QMainWindow, QWidget {{ background: {COLOR_BG}; color: {COLOR_TEXT}; }}
+            #Sidebar, #StatsPanel {{ background: {COLOR_PANEL}; }}
+            QPushButton {{
+                background: {COLOR_PANEL}; color: {COLOR_TEXT};
+                border: 1px solid {COLOR_GRID}; border-radius: 3px; padding: 5px;
+            }}
+            QPushButton:hover {{ border-color: {COLOR_ACCENT}; }}
+            QPushButton:disabled {{ color: {COLOR_GRID}; }}
+            QPushButton#Accent {{ color: {COLOR_ACCENT}; font-weight: bold; }}
+            QPushButton:checked {{
+                background: {COLOR_ACCENT}; color: {COLOR_BG};
+                font-weight: bold; border-color: {COLOR_ACCENT};
+            }}
+            QLineEdit, QComboBox {{
+                background: {COLOR_BG}; color: {COLOR_TEXT};
+                border: 1px solid {COLOR_GRID}; border-radius: 3px; padding: 3px;
+            }}
+            QCheckBox, QLabel, QRadioButton {{ color: {COLOR_TEXT}; }}
+            QGroupBox {{
+                border: 1px solid {COLOR_GRID}; border-radius: 4px; margin-top: 8px;
+                color: {COLOR_TEXT}; font-weight: bold;
+            }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 8px; padding: 0 3px; }}
+            QSplitter::handle {{ background: {COLOR_GRID}; }}
+            QStatusBar {{ background: {COLOR_PANEL}; }}
+            QPlainTextEdit {{ background: {COLOR_BG}; color: {COLOR_TEXT}; }}
+        """)
 
-        ttk.Label(top, text="Port:").pack(side="left")
-        self.port_var = tk.StringVar()
-        self.port_combo = ttk.Combobox(top, textvariable=self.port_var, width=16, state="readonly")
-        self.port_combo.pack(side="left", padx=(2, 4))
-        ttk.Button(top, text="Refresh", command=lambda: self._refresh_ports()).pack(side="left")
+        main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.setCentralWidget(main_splitter)
 
-        ttk.Label(top, text="Baud:").pack(side="left", padx=(10, 0))
-        self.baud_var = tk.StringVar(value="921600")
-        ttk.Entry(top, textvariable=self.baud_var, width=8).pack(side="left", padx=(2, 4))
+        main_splitter.addWidget(self._build_sidebar())
 
-        self.connect_btn = ttk.Button(top, text="Connect", command=self._connect)
-        self.connect_btn.pack(side="left", padx=(10, 2))
-        self.disconnect_btn = ttk.Button(top, text="Disconnect", command=self._disconnect, state="disabled")
-        self.disconnect_btn.pack(side="left")
+        right = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        right.addWidget(self._build_waveform_panel())
 
-        self.status_light = tk.Label(top, text="●", font=("Helvetica", 16), fg="red")
-        self.status_light.pack(side="left", padx=(12, 2))
-        self.status_text = ttk.Label(top, text="disconnected")
-        self.status_text.pack(side="left")
+        bottom = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        bottom.addWidget(self._build_histogram_panel())
+        bottom.addWidget(self._build_stats_hint_panel())
+        bottom.setSizes([700, 500])
+        right.addWidget(bottom)
+        right.setSizes([500, 350])
 
-        ctrl = ttk.Frame(self.root, padding=(6, 0))
-        ctrl.pack(side="top", fill="x")
+        main_splitter.addWidget(right)
+        main_splitter.setSizes([220, 1180])
 
-        self.start_btn = ttk.Button(ctrl, text="Start Capture", command=self._cmd_start)
-        self.start_btn.pack(side="left", padx=2)
-        self.stop_btn = ttk.Button(ctrl, text="Stop Capture", command=self._cmd_stop)
-        self.stop_btn.pack(side="left", padx=2)
-        self.reset_btn = ttk.Button(ctrl, text="Reset", command=self._cmd_reset)
-        self.reset_btn.pack(side="left", padx=2)
-        ttk.Button(ctrl, text="Clear Display", command=self._clear_display).pack(side="left", padx=(12, 2))
-        ttk.Button(ctrl, text="Save to CSV", command=self._save_csv).pack(side="left", padx=2)
-        ttk.Button(ctrl, text="Load CSV", command=self._load_csv).pack(side="left", padx=2)
+        self._build_status_strip()
+        self._build_log_dock()
 
-        counters = ttk.Frame(self.root, padding=6, relief="groove")
-        counters.pack(side="top", fill="x", padx=6, pady=4)
+    def _build_sidebar(self):
+        panel = QtWidgets.QWidget()
+        panel.setObjectName("Sidebar")
+        panel.setMinimumWidth(200)
+        panel.setMaximumWidth(260)
+        lay = QtWidgets.QVBoxLayout(panel)
+        lay.setSpacing(8)
 
-        self.count_var = tk.StringVar(value="Records: 0")
-        ttk.Label(counters, textvariable=self.count_var, width=14).pack(side="left", padx=8)
+        lay.addWidget(QtWidgets.QLabel("<b>Serial</b>"))
+        self.port_combo = QtWidgets.QComboBox()
+        lay.addWidget(self.port_combo)
+        refresh_btn = QtWidgets.QPushButton("Refresh Ports")
+        refresh_btn.clicked.connect(lambda: self._refresh_ports())
+        lay.addWidget(refresh_btn)
 
-        self.rate_var = tk.StringVar(value="0 edges/sec")
-        ttk.Label(counters, textvariable=self.rate_var, width=14).pack(side="left", padx=8)
+        lay.addWidget(QtWidgets.QLabel("Baud:"))
+        self.baud_edit = QtWidgets.QLineEdit("921600")
+        self.baud_edit.setFont(mono_font())
+        lay.addWidget(self.baud_edit)
 
-        self.since_var = tk.StringVar(value="Time since last edge: -")
-        ttk.Label(counters, textvariable=self.since_var, width=26).pack(side="left", padx=8)
+        self.connect_btn = QtWidgets.QPushButton("Connect")
+        self.connect_btn.setObjectName("Accent")
+        self.connect_btn.clicked.connect(self._toggle_connect)
+        lay.addWidget(self.connect_btn)
 
-        ttk.Label(counters, text="Overflow since last reset:").pack(side="left", padx=(20, 2))
-        self.overflow_label = tk.Label(counters, text="no", width=6, relief="sunken")
-        self.overflow_label.pack(side="left")
-        self._overflow_ok_bg = self.overflow_label.cget("bg")
+        lay.addSpacing(10)
+        lay.addWidget(QtWidgets.QLabel("<b>Capture</b>"))
+        self.start_btn = QtWidgets.QPushButton("Start Capture")
+        self.start_btn.clicked.connect(self._cmd_start)
+        lay.addWidget(self.start_btn)
+        self.stop_btn = QtWidgets.QPushButton("Stop Capture")
+        self.stop_btn.clicked.connect(self._cmd_stop)
+        lay.addWidget(self.stop_btn)
+        self.reset_btn = QtWidgets.QPushButton("Reset")
+        self.reset_btn.clicked.connect(self._cmd_reset)
+        lay.addWidget(self.reset_btn)
 
-        self.resync_var = tk.StringVar(value="resyncs: 0")
-        ttk.Label(counters, textvariable=self.resync_var, width=14).pack(side="left", padx=(20, 0))
+        lay.addSpacing(10)
+        lay.addWidget(QtWidgets.QLabel("<b>Data</b>"))
+        self.load_csv_btn = QtWidgets.QPushButton("Load CSV")
+        self.load_csv_btn.clicked.connect(self._load_csv)
+        lay.addWidget(self.load_csv_btn)
+        self.save_csv_btn = QtWidgets.QPushButton("Save CSV")
+        self.save_csv_btn.clicked.connect(self._save_csv)
+        lay.addWidget(self.save_csv_btn)
+        clear_btn = QtWidgets.QPushButton("Clear Display")
+        clear_btn.clicked.connect(self._clear_display)
+        lay.addWidget(clear_btn)
 
-        self.high_water_var = tk.StringVar(value="high water: -")
-        ttk.Label(counters, textvariable=self.high_water_var, width=20).pack(side="left", padx=(20, 0))
+        lay.addSpacing(10)
+        self.console_toggle_btn = QtWidgets.QPushButton("Show Console")
+        self.console_toggle_btn.setCheckable(True)
+        self.console_toggle_btn.toggled.connect(self._on_console_toggle_clicked)
+        lay.addWidget(self.console_toggle_btn)
 
-        # ---- tabbed body: Waveform / Statistics / Log ----
-        nb = ttk.Notebook(self.root)
-        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 6))
+        lay.addStretch(1)
+        return panel
 
-        wave_tab = ttk.Frame(nb)
-        stats_tab = ttk.Frame(nb)
-        log_tab = ttk.Frame(nb)
-        nb.add(wave_tab, text="Waveform")
-        nb.add(stats_tab, text="Statistics")
-        nb.add(log_tab, text="Log / Diagnostics")
+    def _build_waveform_panel(self):
+        container = QtWidgets.QWidget()
+        v = QtWidgets.QVBoxLayout(container)
+        v.setContentsMargins(4, 4, 4, 4)
 
-        self._build_wave_tab(wave_tab)
-        self._build_stats_tab(stats_tab)
-        self._build_log_tab(log_tab)
+        v.addLayout(self._build_wave_nav_toolbar())
 
-    def _build_wave_tab(self, parent):
-        header = ttk.Frame(parent, padding=(4, 4))
-        header.pack(side="top", fill="x")
-        ttk.Button(header, text="Zoom In", command=self._zoom_in).pack(side="right", padx=2)
-        ttk.Button(header, text="Zoom Out", command=self._zoom_out).pack(side="right", padx=2)
-        ttk.Button(header, text="Follow Live", command=self._follow_live).pack(side="right", padx=(12, 2))
-        ttk.Button(header, text="Clear Markers", command=self._clear_markers).pack(side="right", padx=2)
-        self.zoom_var = tk.StringVar()
-        ttk.Label(header, textvariable=self.zoom_var).pack(side="right", padx=8)
-        ttk.Label(header, text="Drag to pan, click to place a marker (2 max), scroll wheel to zoom").pack(side="left")
+        self.wave_widget = pg.GraphicsLayoutWidget()
+        v.addWidget(self.wave_widget, stretch=1)
 
-        self.wave_canvas = tk.Canvas(parent, bg="white", height=220, highlightthickness=1,
-                                      highlightbackground="#aaaaaa")
-        self.wave_canvas.pack(side="top", fill="both", expand=True, padx=4)
-        self.wave_canvas.bind("<ButtonPress-1>", self._wave_button_press)
-        self.wave_canvas.bind("<B1-Motion>", self._wave_drag)
-        self.wave_canvas.bind("<ButtonRelease-1>", self._wave_button_release)
-        self.wave_canvas.bind("<Motion>", self._wave_motion)
-        self.wave_canvas.bind("<MouseWheel>", self._wave_wheel)     # Windows/Mac
-        self.wave_canvas.bind("<Button-4>", lambda e: self._zoom_in())    # Linux scroll up
-        self.wave_canvas.bind("<Button-5>", lambda e: self._zoom_out())   # Linux scroll down
+        self.plot_a = self.wave_widget.addPlot(row=0, col=0)
+        self.wave_widget.nextRow()
+        self.plot_b = self.wave_widget.addPlot(row=1, col=0, axisItems={"bottom": TimeAxisItem(orientation="bottom")})
 
-        info = ttk.Frame(parent, padding=(4, 2))
-        info.pack(side="top", fill="x")
-        self.cursor_var = tk.StringVar(value="cursor: -")
-        ttk.Label(info, textvariable=self.cursor_var, width=28).pack(side="left")
-        self.marker_var = tk.StringVar(value="markers: none placed")
-        ttk.Label(info, textvariable=self.marker_var).pack(side="left", padx=12)
-        self._update_zoom_label()
+        for p, color, name in ((self.plot_a, COLOR_CH_A, "P_A"), (self.plot_b, COLOR_CH_B, "P_B")):
+            p.showGrid(x=True, y=False, alpha=0.4)
+            p.setYRange(-0.3, 1.3, padding=0)
+            p.getAxis("left").setStyle(showValues=False)
+            p.getAxis("left").setPen(pg.mkPen(COLOR_GRID))
+            p.getAxis("bottom").setPen(pg.mkPen(COLOR_GRID))
+            p.setLabel("left", name, color=color, **{"font-weight": "bold"})
+            p.getViewBox().setMouseEnabled(x=True, y=False)
+            p.setMenuEnabled(False)
+            p.hideButtons()   # pyqtgraph's default "A" auto-range corner button - it bypasses
+                               # our own view-management (follow_latest, guarded range changes)
 
-    def _build_stats_tab(self, parent):
-        top = ttk.Frame(parent, padding=8)
-        top.pack(side="top", fill="x")
+        self.plot_a.getAxis("bottom").setStyle(showValues=False)
+        self.plot_b.setLabel("bottom", "Time", color=COLOR_TEXT)
+        self.plot_b.setXLink(self.plot_a)
+        # this is the ONLY x-range change hook we need: plot_b is linked to
+        # plot_a, so any range change on either shows up here once
+        self.plot_a.getViewBox().sigXRangeChanged.connect(self._on_wave_range_changed)
 
-        self.stat_total_var = tk.StringVar(value="Total edges: 0")
-        ttk.Label(top, textvariable=self.stat_total_var, width=20).pack(side="left", padx=8)
-        self.stat_shortest_var = tk.StringVar(value="Shortest pulse: -")
-        ttk.Label(top, textvariable=self.stat_shortest_var, width=24).pack(side="left", padx=8)
-        self.stat_longest_gap_var = tk.StringVar(value="Longest gap: -")
-        ttk.Label(top, textvariable=self.stat_longest_gap_var, width=24).pack(side="left", padx=8)
+        self.curve_a = self.plot_a.plot(pen=pg.mkPen(COLOR_CH_A, width=2))
+        self.curve_b = self.plot_b.plot(pen=pg.mkPen(COLOR_CH_B, width=2))
 
-        chan_frame = ttk.Frame(parent, padding=(8, 0))
-        chan_frame.pack(side="top", fill="x")
-        ttk.Label(chan_frame, text="Histogram channel:").pack(side="left")
-        for ch in range(NUM_CHANNELS):
-            ttk.Radiobutton(chan_frame, text=f"CH{ch}", variable=self.hist_channel, value=ch,
-                             command=self._redraw_histogram).pack(side="left", padx=4)
-        ttk.Button(chan_frame, text="Zoom In", command=lambda: self._hist_zoom(1 / 1.5)).pack(side="right", padx=2)
-        ttk.Button(chan_frame, text="Zoom Out", command=lambda: self._hist_zoom(1.5)).pack(side="right", padx=2)
-        ttk.Button(chan_frame, text="Reset View", command=self._hist_reset_view).pack(side="right", padx=(12, 2))
+        # non-interactive crosshair that follows the mouse (one line per
+        # plot, kept at the same x so it visually spans both channels)
+        cursor_pen = pg.mkPen(COLOR_TEXT, width=1, style=QtCore.Qt.DashLine)
+        self.cursor_line_a = pg.InfiniteLine(angle=90, movable=False, pen=cursor_pen)
+        self.cursor_line_b = pg.InfiniteLine(angle=90, movable=False, pen=cursor_pen)
+        self.plot_a.addItem(self.cursor_line_a)
+        self.plot_b.addItem(self.cursor_line_b)
 
-        ttk.Label(parent, text="Pulse-width histogram (pooled high+low durations), log-scale count axis - "
-                               "a UART line clusters tightly around one bit period, a 100 kHz I2C clock "
-                               "shows a sharp spike near 5 us, contact bounce is a wide structureless smear. "
-                               "Scroll wheel or Zoom In/Out to inspect the time axis; drag to pan.",
-                  padding=(8, 4), wraplength=900).pack(side="top", anchor="w")
+        # two draggable markers for manual delta-t measurement (e.g. a bit
+        # period). Each marker is really TWO InfiniteLine instances (one per
+        # stacked plot) kept in sync programmatically so the line visually
+        # spans both channel rows even though they're separate PlotItems.
+        marker_pen = pg.mkPen(COLOR_MARKER, width=1, style=QtCore.Qt.DashLine)
+        self.marker1_a = pg.InfiniteLine(angle=90, movable=True, pen=marker_pen)
+        self.marker1_b = pg.InfiniteLine(angle=90, movable=True, pen=marker_pen)
+        self.marker2_a = pg.InfiniteLine(angle=90, movable=True, pen=marker_pen)
+        self.marker2_b = pg.InfiniteLine(angle=90, movable=True, pen=marker_pen)
+        for m, pos in ((self.marker1_a, 0), (self.marker1_b, 0), (self.marker2_a, 10), (self.marker2_b, 10)):
+            m.setPos(pos)
+        self.plot_a.addItem(self.marker1_a)
+        self.plot_b.addItem(self.marker1_b)
+        self.plot_a.addItem(self.marker2_a)
+        self.plot_b.addItem(self.marker2_b)
+        self._link_markers(self.marker1_a, self.marker1_b)
+        self._link_markers(self.marker2_a, self.marker2_b)
 
-        self.hist_canvas = tk.Canvas(parent, bg="white", height=280, highlightthickness=1,
-                                      highlightbackground="#aaaaaa")
-        self.hist_canvas.pack(side="top", fill="both", expand=True, padx=8, pady=(0, 8))
-        # the first _redraw_histogram() call can land while this tab isn't
-        # visible yet, when winfo_width() is just a 1px placeholder - the
-        # draw bails out on that and nothing else was re-triggering it once
-        # the tab actually became visible with real dimensions. <Configure>
-        # fires whenever the canvas is resized OR first mapped, so bind a
-        # redraw there too (not just the stats_dirty-driven one in _stats_tick)
-        self.hist_canvas.bind("<Configure>", lambda e: self._redraw_histogram())
-        self.hist_canvas.bind("<ButtonPress-1>", self._hist_button_press)
-        self.hist_canvas.bind("<B1-Motion>", self._hist_drag)
-        self.hist_canvas.bind("<ButtonRelease-1>", self._hist_button_release)
-        self.hist_canvas.bind("<MouseWheel>", self._hist_wheel)                       # Windows/Mac
-        self.hist_canvas.bind("<Button-4>", lambda e: self._hist_zoom(1 / 1.5, self._hist_x_to_us(e.x)))  # Linux up
-        self.hist_canvas.bind("<Button-5>", lambda e: self._hist_zoom(1.5, self._hist_x_to_us(e.x)))      # Linux down
+        self.wave_widget.scene().sigMouseMoved.connect(self._on_wave_mouse_moved)
 
-    def _build_log_tab(self, parent):
-        header = ttk.Frame(parent, padding=(4, 4))
-        header.pack(side="top", fill="x")
-        self.paused_log = tk.BooleanVar(value=False)
-        ttk.Checkbutton(header, text="Pause scrolling", variable=self.paused_log).pack(side="right")
-        self.raw_mode = tk.BooleanVar(value=False)
-        ttk.Checkbutton(header, text="Show raw bytes (diagnostic mode - bypasses frame parsing)",
-                         variable=self.raw_mode, command=self._on_raw_mode_toggle).pack(side="right", padx=12)
+        readout = QtWidgets.QHBoxLayout()
+        self.cursor_label = QtWidgets.QLabel("cursor: -")
+        self.cursor_label.setFont(mono_font())
+        readout.addWidget(self.cursor_label)
+        readout.addSpacing(20)
+        self.marker_label = QtWidgets.QLabel()
+        self.marker_label.setFont(mono_font())
+        readout.addWidget(self.marker_label)
+        readout.addStretch(1)
+        v.addLayout(readout)
+        self._update_marker_readout()   # fill in the initial text using real formatting
 
-        body = ttk.Frame(parent)
-        body.pack(side="top", fill="both", expand=True, padx=4, pady=(0, 4))
-        self.log_text = tk.Text(body, height=12, state="disabled", wrap="none", font=("Courier New", 10))
-        scroll = ttk.Scrollbar(body, orient="vertical", command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=scroll.set)
-        self.log_text.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        # a deliberate default window width, rather than leaving it to
+        # whatever pyqtgraph's own auto-fit-to-data happens to land on
+        # before any real navigation action - this also disables that
+        # auto-fit immediately (setXRange does that as a side effect),
+        # which follow_latest's own scrolling depends on from this
+        # point on: it always adjusts an existing explicit range, never
+        # lets the ViewBox silently auto-fit underneath it
+        self._set_wave_xrange(0.0, 1_000_000.0)   # 1 second, arbitrary position
+        self._update_wave_width_field(1_000_000.0)
 
-        self.log_text.tag_configure("record", foreground="black")
-        self.log_text.tag_configure("status", foreground="#0060c0")
-        self.log_text.tag_configure("ack", foreground="#0a8a3a")
-        self.log_text.tag_configure("error", foreground="white", background="#c00000")
-        self.log_text.tag_configure("raw", foreground="#a05a00")
-        self.log_text.tag_configure("system", foreground="#777777")
+        return container
 
-    # --------------------------------------------------------
+    def _build_wave_nav_toolbar(self):
+        # explicit, reliable navigation controls - mouse wheel zoom and
+        # drag pan still work (the ViewBox's own built-in handling, never
+        # touched here), but these buttons are the primary way to get
+        # around, per the request that drove this: mouse-only pan/zoom
+        # was too fiddly to control precisely.
+        bar = QtWidgets.QHBoxLayout()
+
+        zoom_in_btn = QtWidgets.QPushButton("Zoom In")
+        zoom_in_btn.clicked.connect(lambda: self._wave_zoom(1 / 2.0))
+        bar.addWidget(zoom_in_btn)
+        zoom_out_btn = QtWidgets.QPushButton("Zoom Out")
+        zoom_out_btn.clicked.connect(lambda: self._wave_zoom(2.0))
+        bar.addWidget(zoom_out_btn)
+
+        bar.addWidget(QtWidgets.QLabel("Window:"))
+        self.wave_width_edit = QtWidgets.QLineEdit()
+        self.wave_width_edit.setFont(mono_font())
+        self.wave_width_edit.setFixedWidth(80)
+        self.wave_width_edit.editingFinished.connect(self._on_wave_width_edited)
+        bar.addWidget(self.wave_width_edit)
+        self.wave_width_unit_label = QtWidgets.QLabel("us")
+        self.wave_width_unit_label.setFont(mono_font())
+        bar.addWidget(self.wave_width_unit_label)
+
+        step_left_btn = QtWidgets.QPushButton("◀")
+        step_left_btn.setToolTip("Step left (back one window width)")
+        step_left_btn.clicked.connect(lambda: self._wave_step(-1))
+        bar.addWidget(step_left_btn)
+        step_right_btn = QtWidgets.QPushButton("▶")
+        step_right_btn.setToolTip("Step right (forward one window width)")
+        step_right_btn.clicked.connect(lambda: self._wave_step(1))
+        bar.addWidget(step_right_btn)
+
+        bar.addStretch(1)
+
+        # checkable button, not a checkbox: the spec asks for the "on"
+        # state to be CLEARLY visible - QPushButton:checked (styled with
+        # the accent colour in _build_ui's stylesheet) reads as "lit up"
+        # far more clearly than a small checkbox tick would
+        self.follow_latest_btn = QtWidgets.QPushButton("Follow Latest")
+        self.follow_latest_btn.setCheckable(True)
+        self.follow_latest_btn.setChecked(True)
+        self.follow_latest_btn.toggled.connect(self._on_follow_latest_toggled)
+        bar.addWidget(self.follow_latest_btn)
+
+        return bar
+
+    def _link_markers(self, line_a, line_b):
+        # avoid feedback loops: block the mirrored line's own signal while
+        # we programmatically move it to match the one the user dragged
+        def make_handler(source, mirror):
+            def handler():
+                mirror.blockSignals(True)
+                mirror.setPos(source.value())
+                mirror.blockSignals(False)
+                self._update_marker_readout()
+            return handler
+        line_a.sigPositionChanged.connect(make_handler(line_a, line_b))
+        line_b.sigPositionChanged.connect(make_handler(line_b, line_a))
+
+    def _update_marker_readout(self):
+        a = self.marker1_a.value()
+        b = self.marker2_a.value()
+        delta = abs(b - a)
+        self.marker_label.setText(
+            f"markers: A={format_duration_us(a)}  B={format_duration_us(b)}  "
+            f"(delta = {format_duration_us(delta)})"
+        )
+
+    def _on_wave_mouse_moved(self, pos):
+        vb = None
+        if self.plot_a.sceneBoundingRect().contains(pos):
+            vb = self.plot_a.getViewBox()
+        elif self.plot_b.sceneBoundingRect().contains(pos):
+            vb = self.plot_b.getViewBox()
+        if vb is None:
+            return
+        t = vb.mapSceneToView(pos).x()
+        self.cursor_line_a.setPos(t)
+        self.cursor_line_b.setPos(t)
+        self.cursor_label.setText(f"cursor: t={format_duration_us(t)}")
+
+    # ========================================================
+    #  Waveform navigation - explicit buttons are the primary way to
+    #  get around; mouse wheel zoom / drag pan (the ViewBox's own
+    #  built-in handling) keep working alongside them untouched.
+    # ========================================================
+    def _set_wave_xrange(self, lo, hi):
+        # guarded: setXRange() below fires sigXRangeChanged, which is
+        # how we detect a REAL user-driven pan/zoom (to turn off Follow
+        # Latest) - this flag tells that handler "this one's just us"
+        self._wave_program_range_change = True
+        try:
+            self.plot_a.setXRange(lo, hi, padding=0)
+        finally:
+            self._wave_program_range_change = False
+
+    def _wave_current_range(self):
+        lo, hi = self.plot_a.getViewBox().viewRange()[0]
+        return lo, hi
+
+    def _wave_zoom(self, factor, center=None):
+        # deliberately does NOT disable follow_latest: changing the
+        # zoom level while still tracking the newest data is normal
+        # ("adjust time/div while a scope is still in roll mode"), not
+        # a request to stop following - the next auto-scroll just uses
+        # the new width
+        lo, hi = self._wave_current_range()
+        if center is None:
+            center = (lo + hi) / 2.0
+        half = max((hi - lo) * factor / 2.0, 1e-6)
+        self._set_wave_xrange(center - half, center + half)
+
+    def _wave_step(self, direction):
+        # unlike zoom, stepping to a specific different position IS
+        # incompatible with roll mode - without this it would just get
+        # overridden on the very next auto-scroll tick
+        self._set_follow_latest(False)
+        lo, hi = self._wave_current_range()
+        width = hi - lo
+        shift = direction * width
+        self._set_wave_xrange(lo + shift, hi + shift)
+
+    def _set_follow_latest(self, enabled):
+        # routes through the button so its visual "lit up" state and
+        # self.follow_latest always agree, however this got triggered
+        self.follow_latest_btn.setChecked(enabled)
+
+    def _on_follow_latest_toggled(self, checked):
+        self.follow_latest = checked
+        if checked and self.wave_records:
+            # snap straight to the latest data instead of waiting for
+            # the next edge to arrive before the view catches up
+            latest_us = self.wave_records[-1][0] / TICKS_PER_US
+            lo, hi = self._wave_current_range()
+            width = hi - lo
+            self._set_wave_xrange(latest_us - width, latest_us)
+
+    def _on_wave_range_changed(self, vb, xrange):
+        lo, hi = xrange
+        self._update_wave_width_field(hi - lo)
+        if not self._wave_program_range_change:
+            # a real mouse drag/wheel-zoom, not one of our own button
+            # actions or the follow-latest auto-scroll - the user is
+            # navigating manually, so stop auto-following out from
+            # under them
+            self._set_follow_latest(False)
+
+    def _update_wave_width_field(self, width_us):
+        unit, scale = best_unit_for(width_us)
+        self.wave_width_unit_label.setText(unit)
+        self.wave_width_edit.setText(f"{width_us / scale:.3f}")
+
+    def _on_wave_width_edited(self):
+        try:
+            value = float(self.wave_width_edit.text())
+        except ValueError:
+            self._update_wave_width_field(self._wave_current_range()[1] - self._wave_current_range()[0])
+            return
+        unit = self.wave_width_unit_label.text()
+        scale = {"ns": 0.001, "us": 1.0, "ms": 1000.0, "s": 1_000_000.0}[unit]
+        width_us = value * scale
+        if width_us <= 0:
+            return
+        lo, hi = self._wave_current_range()
+        center = (lo + hi) / 2.0
+        self._set_wave_xrange(center - width_us / 2.0, center + width_us / 2.0)
+
+    def _build_histogram_panel(self):
+        box = QtWidgets.QGroupBox("Pulse-Width Histogram")
+        v = QtWidgets.QVBoxLayout(box)
+
+        header = QtWidgets.QHBoxLayout()
+        header.addWidget(QtWidgets.QLabel("Channel:"))
+        self.hist_group = QtWidgets.QButtonGroup(box)
+        self.hist_radio_a = QtWidgets.QRadioButton("P_A")
+        self.hist_radio_b = QtWidgets.QRadioButton("P_B")
+        self.hist_radio_a.setChecked(True)
+        self.hist_group.addButton(self.hist_radio_a, 0)
+        self.hist_group.addButton(self.hist_radio_b, 1)
+        self.hist_radio_a.toggled.connect(self._on_hist_channel_changed)
+        header.addWidget(self.hist_radio_a)
+        header.addWidget(self.hist_radio_b)
+        header.addStretch(1)
+        reset_view_btn = QtWidgets.QPushButton("Reset View")
+        reset_view_btn.clicked.connect(self._hist_reset_view)
+        header.addWidget(reset_view_btn)
+        v.addLayout(header)
+
+        self.hist_plot_widget = pg.PlotWidget(axisItems={"bottom": TimeAxisItem(orientation="bottom")})
+        p = self.hist_plot_widget.getPlotItem()
+        p.showGrid(x=True, y=True, alpha=0.4)
+        p.getAxis("left").setPen(pg.mkPen(COLOR_GRID))
+        p.getAxis("bottom").setPen(pg.mkPen(COLOR_GRID))
+        p.setLabel("left", "count (log)", color=COLOR_TEXT)
+        p.setLabel("bottom", "pulse width", color=COLOR_TEXT)
+        p.getViewBox().setMouseEnabled(x=True, y=False)   # zoomable time axis; log-count axis is fixed
+        p.setMenuEnabled(False)
+        p.hideButtons()   # pyqtgraph's default "A" auto-range corner button - see the waveform plots
+        self.hist_bars = pg.BarGraphItem(x=[0], height=[0], width=1, brush=pg.mkBrush(COLOR_CH_A))
+        p.addItem(self.hist_bars)
+        # user pans/zooms the time axis for free via the ViewBox's built-in
+        # mouse handling; this just tells us when that happened so we can
+        # re-bin the visible slice at full resolution (that's what makes
+        # zooming into e.g. a histogram spike actually reveal structure,
+        # rather than just visually stretching the same 60 coarse bins)
+        p.getViewBox().sigXRangeChanged.connect(self._on_hist_range_changed)
+        v.addWidget(self.hist_plot_widget, stretch=1)
+
+        self.hist_info_label = QtWidgets.QLabel("(no pulses yet)")
+        self.hist_info_label.setFont(mono_font(9))
+        v.addWidget(self.hist_info_label)
+
+        # guarded so this doesn't get mistaken for a user zoom (see
+        # _on_hist_range_changed): without an explicit initial range,
+        # pyqtgraph's own auto-fit-to-(empty)-data fires sigXRangeChanged
+        # on some arbitrary tiny default range BEFORE any real histogram
+        # data exists, which would otherwise permanently latch
+        # hist_view_min/max to that nonsense range - every future
+        # channel switch would then bin against it instead of computing
+        # a real full range, until "Reset View" was clicked by hand
+        self._hist_redraw_in_progress = True
+        try:
+            p.setXRange(0, 1)
+        finally:
+            self._hist_redraw_in_progress = False
+
+        return box
+
+    def _build_stats_hint_panel(self):
+        panel = QtWidgets.QWidget()
+        panel.setObjectName("StatsPanel")
+        v = QtWidgets.QVBoxLayout(panel)
+
+        stats_box = QtWidgets.QGroupBox("Statistics")
+        sv = QtWidgets.QVBoxLayout(stats_box)
+        self.stat_total_label = QtWidgets.QLabel("Total edges: 0")
+        self.stat_shortest_label = QtWidgets.QLabel("Shortest pulse: -")
+        self.stat_longest_label = QtWidgets.QLabel("Longest gap: -")
+        for lbl in (self.stat_total_label, self.stat_shortest_label, self.stat_longest_label):
+            lbl.setFont(mono_font())
+            sv.addWidget(lbl)
+        v.addWidget(stats_box)
+
+        hint_box = QtWidgets.QGroupBox("Protocol Hint")
+        hv = QtWidgets.QVBoxLayout(hint_box)
+        self.hint_label = QtWidgets.QLabel("No pulses captured yet.")
+        self.hint_label.setFont(mono_font(10, bold=True))
+        self.hint_label.setWordWrap(True)
+        hv.addWidget(self.hint_label)
+        disclaimer_label = QtWidgets.QLabel(DISCLAIMER)
+        disclaimer_label.setWordWrap(True)
+        disclaimer_label.setStyleSheet(f"color: {COLOR_MUTED_TEXT}; font-style: italic;")
+        f = disclaimer_label.font()
+        f.setPointSize(8)
+        disclaimer_label.setFont(f)
+        hv.addWidget(disclaimer_label)
+        v.addWidget(hint_box)
+
+        v.addStretch(1)
+        return panel
+
+    def _build_status_strip(self):
+        bar = self.statusBar()
+
+        self.link_dot = Dot()
+        self.link_dot.set_color(COLOR_GRID)
+        bar.addWidget(self.link_dot)
+        self.status_text_label = QtWidgets.QLabel("disconnected")
+        bar.addWidget(self.status_text_label)
+
+        self.rate_label = QtWidgets.QLabel("0 records/sec")
+        self.rate_label.setFont(mono_font())
+        bar.addPermanentWidget(self.rate_label)
+
+        self.high_water_label = QtWidgets.QLabel(f"high water: - / {self.fifo_depth}")
+        self.high_water_label.setFont(mono_font())
+        bar.addPermanentWidget(self.high_water_label)
+
+        bar.addPermanentWidget(QtWidgets.QLabel("overflow:"))
+        self.overflow_dot = Dot()
+        self.overflow_dot.set_color(COLOR_GRID)
+        bar.addPermanentWidget(self.overflow_dot)
+
+        self.resync_label = QtWidgets.QLabel("resyncs: 0")
+        self.resync_label.setFont(mono_font())
+        bar.addPermanentWidget(self.resync_label)
+
+    def _build_log_dock(self):
+        # the console: scrolling log + raw-byte diagnostic mode + pause
+        # + clear, all together since they're all about inspecting the
+        # wire traffic, not about the waveform/histogram. Hidden by
+        # default; hiding it lets the waveform/histogram above expand
+        # into the space (ordinary QDockWidget behaviour, no extra code
+        # needed for that part).
+        self.log_dock = QtWidgets.QDockWidget("Console", self)
+        self.log_dock.setObjectName("ConsoleDock")
+        self.log_dock.visibilityChanged.connect(self._on_console_visibility_changed)
+
+        body = QtWidgets.QWidget()
+        v = QtWidgets.QVBoxLayout(body)
+        v.setContentsMargins(4, 4, 4, 4)
+
+        header = QtWidgets.QHBoxLayout()
+        self.raw_mode_check = QtWidgets.QCheckBox("Show raw bytes (diagnostic)")
+        self.raw_mode_check.toggled.connect(self._on_raw_mode_toggle)
+        header.addWidget(self.raw_mode_check)
+        self.log_pause_check = QtWidgets.QCheckBox("Pause")
+        self.log_pause_check.toggled.connect(self._on_log_pause_toggled)
+        header.addWidget(self.log_pause_check)
+        header.addStretch(1)
+        clear_console_btn = QtWidgets.QPushButton("Clear")
+        clear_console_btn.clicked.connect(self._clear_console)
+        header.addWidget(clear_console_btn)
+        v.addLayout(header)
+
+        self.log_text = QtWidgets.QPlainTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setFont(mono_font(9))
+        self.log_text.setMaximumBlockCount(2000)
+        v.addWidget(self.log_text)
+
+        self.log_dock.setWidget(body)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.log_dock)
+        self.log_dock.setVisible(False)
+
+    def _on_console_toggle_clicked(self, checked):
+        self.log_dock.setVisible(checked)
+
+    def _on_console_visibility_changed(self, visible):
+        # keep the sidebar button's "lit up" state in sync even if the
+        # dock was closed/reopened some other way (its own titlebar X,
+        # dragging it back in, etc.) rather than via our own button
+        self.console_toggle_btn.setChecked(visible)
+        self.console_toggle_btn.setText("Hide Console" if visible else "Show Console")
+
+    def _on_log_pause_toggled(self, checked):
+        self._log_paused = checked
+        if not checked and self._log_buffer:
+            for text, color in self._log_buffer:
+                self._append_log_line(text, color)
+            self._log_buffer.clear()
+
+    def _clear_console(self):
+        self.log_text.clear()
+        self._log_buffer.clear()
+
+    # ========================================================
     #  Port list
-    # --------------------------------------------------------
+    # ========================================================
     def _refresh_ports(self, preselect=None):
         ports = [p.device for p in serial.tools.list_ports.comports()]
-        self.port_combo["values"] = ports
+        self.port_combo.clear()
+        self.port_combo.addItems(ports)
         if preselect and preselect in ports:
-            self.port_var.set(preselect)
-        elif ports:
-            for p in ports:
+            self.port_combo.setCurrentText(preselect)
+        else:
+            for i, p in enumerate(ports):
                 if "ttyUSB" in p or "ttyACM" in p:
-                    self.port_var.set(p)
+                    self.port_combo.setCurrentIndex(i)
                     break
-            else:
-                self.port_var.set(ports[0])
 
-    # --------------------------------------------------------
+    # ========================================================
     #  Connect / disconnect
-    # --------------------------------------------------------
-    def _connect(self):
+    # ========================================================
+    def _toggle_connect(self):
         if self.connected:
-            return
-        port = self.port_var.get().strip()
+            self._disconnect()
+        else:
+            self._connect()
+
+    def _connect(self):
+        port = self.port_combo.currentText().strip()
         if not port:
-            messagebox.showerror("No port selected", "Choose a serial port first.")
+            QtWidgets.QMessageBox.critical(self, "No port selected", "Choose a serial port first.")
             return
         try:
-            baud = int(self.baud_var.get())
+            baud = int(self.baud_edit.text())
         except ValueError:
-            messagebox.showerror("Bad baud rate", "Baud rate must be an integer.")
+            QtWidgets.QMessageBox.critical(self, "Bad baud rate", "Baud rate must be an integer.")
             return
 
         try:
             self.ser = serial.Serial(port, baud, timeout=0.05)
         except serial.SerialException as exc:
-            messagebox.showerror("Connection failed", str(exc))
+            QtWidgets.QMessageBox.critical(self, "Connection failed", str(exc))
             return
 
         self.stop_event = threading.Event()
@@ -440,11 +835,26 @@ class App:
         self.connected = True
         self.parser = FrameParser()
         self.prev_ts = None
-        self._set_status_light(True)
+        self.connect_btn.setText("Disconnect")
         self._set_controls_enabled(True)
+        self.status_text_label.setText(f"connected ({port} @ {baud})")
         self._log_system(f"Connected to {port} @ {baud} baud")
+        self.status_poll_timer.start(STATUS_POLL_MS)
 
-        self._schedule_status_poll()
+        # a fresh connect landing mid-frame (the FPGA doesn't wait for a
+        # listener - it may already be transmitting) causes a small,
+        # ONE-TIME batch of resyncs that isn't a real problem: it's
+        # bounded (self-heals within whatever was already in flight)
+        # and never recurs. _tick() captures _resync_baseline once
+        # BOTH the queue has actually drained empty AND a short minimum
+        # time has passed since connecting - see _tick() for why either
+        # signal alone is unreliable (queue-empty alone can trigger on
+        # the very first tick, before the reader thread has attempted
+        # its first read at all; a fixed time alone can fire before a
+        # slow event loop has finished reflecting a real burst that's
+        # still queued).
+        self._resync_baseline = None
+        self._connect_monotonic_time = time.monotonic()
 
     def _disconnect(self, reason=None):
         if not self.connected:
@@ -462,23 +872,20 @@ class App:
         self.reader_thread = None
         self.stop_event = None
         self.connected = False
-        self._set_status_light(False)
+        self.status_poll_timer.stop()
+        self.connect_btn.setText("Connect")
         self._set_controls_enabled(False)
+        self.link_dot.set_color(COLOR_GRID)
+        self.status_text_label.setText("disconnected" if reason is None else f"disconnected: {reason}")
         self._log_system(f"Disconnected: {reason}" if reason else "Disconnected")
 
-    def _set_status_light(self, connected):
-        self.status_light.configure(fg="green" if connected else "red")
-        self.status_text.configure(text="connected" if connected else "disconnected")
-
     def _set_controls_enabled(self, connected):
-        self.connect_btn.configure(state="disabled" if connected else "normal")
-        self.disconnect_btn.configure(state="normal" if connected else "disabled")
         for b in (self.start_btn, self.stop_btn, self.reset_btn):
-            b.configure(state="normal" if connected else "disabled")
+            b.setEnabled(connected)
 
-    # --------------------------------------------------------
-    #  Commands out to the FPGA
-    # --------------------------------------------------------
+    # ========================================================
+    #  Commands out to the FPGA (unchanged single-byte commands)
+    # ========================================================
     def _send_byte(self, b):
         if not self.connected or self.ser is None:
             return
@@ -488,37 +895,34 @@ class App:
             self._disconnect(reason=str(exc))
 
     def _cmd_start(self):
-        self._send_byte(ord('S'))
+        self._send_byte(ord("S"))
 
     def _cmd_stop(self):
-        self._send_byte(ord('X'))
+        self._send_byte(ord("X"))
 
     def _cmd_reset(self):
-        self._send_byte(ord('R'))
+        self._send_byte(ord("R"))
         self.prev_ts = None
         self.overflow_since_reset = False
+        self.overflow_dot.set_color(COLOR_GRID)
         self._log_system("Sent RESET ('R')")
 
     def _cmd_status(self):
-        self._send_byte(ord('V'))
+        self._send_byte(ord("V"))
 
-    def _schedule_status_poll(self):
-        if not self.connected:
-            return
-        self._cmd_status()
-        self.root.after(1000, self._schedule_status_poll)
-
-    # --------------------------------------------------------
-    #  Recurring UI-thread tick
-    # --------------------------------------------------------
+    # ========================================================
+    #  Recurring UI-thread tick: drain the queue, batch the redraw
+    # ========================================================
     def _tick(self):
         try:
             drained = 0
             chunks = []
+            queue_emptied = False   # did we actually hit queue.Empty (caught up), not just the drain cap?
             while drained < 4096:
                 try:
                     kind, payload = self.rx_queue.get_nowait()
                 except queue.Empty:
+                    queue_emptied = True
                     break
                 drained += 1
                 if kind == "error":
@@ -527,71 +931,92 @@ class App:
                 elif kind == "data":
                     chunks.append(payload)
 
+            new_edges = False
             if chunks:
                 data = b"".join(chunks)
-                if self.raw_mode.get():
+                # raw-byte logging is an ADDITION to normal parsing, not
+                # a replacement for it - it used to skip parser.feed()
+                # entirely while enabled, which silently stopped the
+                # waveform/stats/hint from updating at all (looked like
+                # the app had broken, not like a diagnostic view)
+                if self.raw_mode:
                     self._log_raw_bytes(data)
-                else:
-                    for kind, payload in self.parser.feed(data):
-                        self._handle_frame(kind, payload)
-                    self.resync_var.set(f"resyncs: {self.parser.resync_count}")
+                for kind, payload in self.parser.feed(data):
+                    if self._handle_frame(kind, payload):
+                        new_edges = True
 
+            if (self._resync_baseline is None and queue_emptied and self.connected
+                    and time.monotonic() - self._connect_monotonic_time >= RESYNC_MIN_SETTLE_SECONDS):
+                # both signals agreed: the queue is drained AND enough
+                # time has passed for the reader thread to have actually
+                # attempted reading (not just found nothing queued yet
+                # because it hasn't run once) - so anything counted up
+                # to now was genuinely already in flight at connect time
+                # (the benign mid-frame-landing case, if it happened at
+                # all); freeze it as the baseline so any LATER resync is
+                # recognisable as new, not more of that same backlog
+                self._resync_baseline = self.parser.resync_count
+
+            self._update_resync_label()
             self._refresh_live_counters()
-            self._redraw_waveform()
+            if new_edges:
+                self._redraw_waveform()
         except Exception as exc:
-            self._log(f"[internal error in UI update: {exc}]", tag="error")
-        finally:
-            self.root.after(UI_PERIOD_MS, self._tick)
+            self._log(f"[internal error in UI update: {exc}]", COLOR_ERROR)
 
     def _stats_tick(self):
         if self.stats_dirty:
             self._recompute_stats()
             self._refresh_stats_labels()
             self._redraw_histogram()
+            self._refresh_hint()
             self.stats_dirty = False
-        self.root.after(STATS_PERIOD_MS, self._stats_tick)
+
+    def _blink_tick(self):
+        if not self.connected:
+            return
+        self._blink_on = not self._blink_on
+        self.link_dot.set_color(COLOR_ACCENT if self._blink_on else COLOR_GRID)
 
     def _log_raw_bytes(self, data):
         hexline = " ".join(f"{b:02X}" for b in data)
-        self._log(f"[RAW] {hexline}", tag="raw")
+        self._log(f"[RAW] {hexline}", "#A0785A")
 
-    # --------------------------------------------------------
+    # ========================================================
     #  Frame dispatch
-    # --------------------------------------------------------
+    # ========================================================
     def _handle_frame(self, kind, payload):
+        """Returns True if this frame added an edge record (so the
+        caller knows a waveform redraw is worth doing this tick)."""
         if kind == "EDGE":
             ts, state = decode_edge(payload)
             self._add_record(ts, state)
+            return True
         elif kind == "STAT":
             overflow, hw, depth = decode_stat(payload)
             if overflow:
                 self.overflow_since_reset = True
+                self.overflow_dot.set_color(COLOR_WARN)
             self.fifo_high_water = hw
             self.fifo_depth = depth
-            self.high_water_var.set(f"high water: {hw} / {depth}")
+            self.high_water_label.setText(f"high water: {hw} / {depth}")
             self._log(f"[STATUS] overflow_since_reset={'YES' if self.overflow_since_reset else 'no'}  "
-                      f"high_water={hw}/{depth}", tag="status")
+                      f"high_water={hw}/{depth}", "#4FA0D8")
         elif kind == "ACK":
             cmd = decode_ack(payload)
             try:
                 cmd_ch = chr(cmd)
             except ValueError:
                 cmd_ch = "?"
-            self._log(f"[ACK] {cmd_ch}", tag="ack")
+            self._log(f"[ACK] {cmd_ch}", COLOR_ACCENT)
         elif kind == "ERR":
             code, bad = decode_err(payload)
             name = ERR_CODE_NAMES.get(code, f"code {code}")
-            self._log(f"[ERROR] {name}: offending byte 0x{bad:02X}", tag="error")
+            self._log(f"[ERROR] {name}: offending byte 0x{bad:02X}", COLOR_ERROR)
+        return False
 
     def _add_record(self, ts, state):
         now = time.monotonic()
-        if self.prev_ts is None:
-            delta_us = 0.0
-        else:
-            delta_ticks = (ts - self.prev_ts) & 0xFFFFFFFF
-            delta_us = delta_ticks / TICKS_PER_US
-        self.prev_ts = ts
-
         self.records.append((ts, state))
         self.wave_records.append((ts, state))
         if len(self.wave_records) > WAVE_MAX_SAMPLES * 2:
@@ -601,57 +1026,68 @@ class App:
         self.last_record_wall_time = now
         self.records_received += 1
         self.stats_dirty = True
+        self.prev_ts = ts
 
-        state_bits = format(state, f"0{NUM_CHANNELS}b")
-        self._log(f"t={ts:10d}  state={state_bits}  dt={delta_us:9.2f} us", tag="record")
-
-    # --------------------------------------------------------
+    # ========================================================
     #  Log widget
-    # --------------------------------------------------------
-    def _log(self, text, tag="record"):
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", text + "\n", tag)
-        line_count = int(self.log_text.index("end-1c").split(".")[0])
-        if line_count > LOG_MAX_LINES:
-            self.log_text.delete("1.0", "2.0")
-        if not self.paused_log.get():
-            self.log_text.see("end")
-        self.log_text.configure(state="disabled")
+    # ========================================================
+    def _log(self, text, color=COLOR_TEXT):
+        if self._log_paused:
+            # nothing lost, just held back until Pause is unchecked (see
+            # _on_log_pause_toggled) - that's the whole point of pausing:
+            # let the user read something without it scrolling away
+            self._log_buffer.append((text, color))
+            return
+        self._append_log_line(text, color)
+
+    def _append_log_line(self, text, color):
+        self.log_text.appendHtml(f'<span style="color:{color}">{html.escape(text)}</span>')
 
     def _log_system(self, text):
-        self._log(text, tag="system")
+        self._log(text, COLOR_MUTED_TEXT)
 
-    def _on_raw_mode_toggle(self):
-        mode = "RAW BYTE" if self.raw_mode.get() else "framed"
-        self._log_system(f"Switched to {mode} display mode")
+    def _on_raw_mode_toggle(self, checked):
+        self.raw_mode = checked
+        self._log_system(f"Switched to {'RAW BYTE' if checked else 'framed'} display mode")
 
-    # --------------------------------------------------------
+    def _update_resync_label(self):
+        count = self.parser.resync_count
+        if self._resync_baseline is None:
+            # haven't caught up to an empty queue yet since connecting -
+            # anything counted so far might still just be backlog from
+            # whatever was already in flight at connect time, so don't
+            # pass judgment yet (see _tick(), which sets the baseline)
+            label = f"resyncs: {count} (settling)" if self.connected else f"resyncs: {count}"
+            self.resync_label.setText(label)
+            self.resync_label.setStyleSheet("")
+            return
+
+        extra = count - self._resync_baseline
+        if extra > 0:
+            # genuinely new resyncs, counted AFTER we'd already caught
+            # up and were listening cleanly - unlike the startup batch,
+            # this has no benign explanation, so it's worth flagging
+            self.resync_label.setText(f"resyncs: {count} (+{extra} since connect settled)")
+            self.resync_label.setStyleSheet(f"color: {COLOR_WARN};")
+        else:
+            self.resync_label.setText(f"resyncs: {count}")
+            self.resync_label.setStyleSheet("")
+
+    # ========================================================
     #  Live counters
-    # --------------------------------------------------------
+    # ========================================================
     def _refresh_live_counters(self):
         now = time.monotonic()
         while self.recv_times and now - self.recv_times[0] > 1.0:
             self.recv_times.pop(0)
-        self.rate_var.set(f"{len(self.recv_times)} edges/sec")
-        self.count_var.set(f"Records: {self.records_received}")
+        self.rate_label.setText(f"{len(self.recv_times):5d} records/sec")
 
-        if self.last_record_wall_time is None:
-            self.since_var.set("Time since last edge: -")
-        else:
-            elapsed = now - self.last_record_wall_time
-            self.since_var.set(f"Time since last edge: {elapsed:6.2f} s")
-
-        if self.overflow_since_reset:
-            self.overflow_label.configure(text="YES", fg="white", bg="#c00000")
-        else:
-            self.overflow_label.configure(text="no", fg="black", bg=self._overflow_ok_bg)
-
-    # --------------------------------------------------------
+    # ========================================================
     #  Statistics
-    # --------------------------------------------------------
+    # ========================================================
     def _recompute_stats(self):
         records = self.records
-        self.stat_total_var.set(f"Total edges: {len(records)}")
+        self.stat_total_label.setText(f"Total edges: {len(records)}")
 
         pulse_widths = {ch: [] for ch in range(NUM_CHANNELS)}
         last_change_ts = [None] * NUM_CHANNELS
@@ -681,16 +1117,40 @@ class App:
 
     def _refresh_stats_labels(self):
         if self.shortest_pulse_us is None:
-            self.stat_shortest_var.set("Shortest pulse: -")
+            self.stat_shortest_label.setText("Shortest pulse: -")
         else:
-            self.stat_shortest_var.set(f"Shortest pulse: {self.shortest_pulse_us:.2f} us")
+            self.stat_shortest_label.setText(f"Shortest pulse: {format_duration_us(self.shortest_pulse_us)}")
         if self.longest_gap_us is None:
-            self.stat_longest_gap_var.set("Longest gap: -")
+            self.stat_longest_label.setText("Longest gap: -")
         else:
-            self.stat_longest_gap_var.set(f"Longest gap: {self.longest_gap_us:.2f} us")
+            self.stat_longest_label.setText(f"Longest gap: {format_duration_us(self.longest_gap_us)}")
 
-    # ---- histogram: zoom / pan on the time axis ----
-    HIST_PAD = (50, 10, 10, 30)   # pad_l, pad_r, pad_t, pad_b
+    def _refresh_hint(self):
+        widths = self.pulse_widths.get(self.hist_channel, [])
+        text = hint_text(widths)
+        self.hint_label.setText(text)
+        if text.startswith("Consistent"):
+            color = COLOR_ACCENT
+        elif "Roughly" in text:
+            color = COLOR_WARN
+        elif "noise" in text or "Doesn't" in text:
+            color = COLOR_ERROR
+        else:
+            color = COLOR_TEXT
+        self.hint_label.setStyleSheet(f"color: {color};")
+
+    # ========================================================
+    #  Histogram: log-scale count axis, zoomable time axis (pan/zoom
+    #  is free via pyqtgraph's ViewBox - only the log transform and
+    #  channel/view-range bookkeeping is custom here)
+    # ========================================================
+    def _on_hist_channel_changed(self, checked):
+        if checked:
+            self.hist_channel = 0
+        else:
+            self.hist_channel = 1
+        self._redraw_histogram()
+        self._refresh_hint()
 
     def _hist_full_range(self, widths):
         lo, hi = min(widths), max(widths)
@@ -703,83 +1163,32 @@ class App:
             return self._hist_full_range(widths)
         return self.hist_view_min, self.hist_view_max
 
-    def _hist_x_to_us(self, x):
-        widths = self.pulse_widths.get(self.hist_channel.get(), [])
-        if not widths:
-            return 0.0
-        pad_l, pad_r, _pad_t, _pad_b = self.HIST_PAD
-        width = self.hist_canvas.winfo_width()
-        plot_w = max(width - pad_l - pad_r, 1)
-        lo, hi = self._hist_current_range(widths)
-        frac = (x - pad_l) / plot_w
-        return lo + frac * (hi - lo)
-
-    def _hist_zoom(self, factor, center=None):
-        widths = self.pulse_widths.get(self.hist_channel.get(), [])
-        if not widths:
-            return
-        lo, hi = self._hist_current_range(widths)
-        if center is None:
-            center = (lo + hi) / 2.0
-        half = max((hi - lo) * factor / 2.0, 1e-6)
-        self.hist_view_min = center - half
-        self.hist_view_max = center + half
-        self._redraw_histogram()
-
     def _hist_reset_view(self):
         self.hist_view_min = None
         self.hist_view_max = None
+        self._redraw_histogram()   # recomputes the full range and sets it below
+
+    def _on_hist_range_changed(self, vb, xrange):
+        if self._hist_redraw_in_progress:
+            return   # our own setXRange() call below, not a user pan/zoom
+        self.hist_view_min, self.hist_view_max = xrange
         self._redraw_histogram()
-
-    def _hist_wheel(self, event):
-        center = self._hist_x_to_us(event.x)
-        if event.delta > 0:
-            self._hist_zoom(1 / 1.5, center)
-        else:
-            self._hist_zoom(1.5, center)
-
-    def _hist_button_press(self, event):
-        self._hist_pan_last_x = event.x
-
-    def _hist_drag(self, event):
-        if self._hist_pan_last_x is None:
-            return
-        widths = self.pulse_widths.get(self.hist_channel.get(), [])
-        if not widths:
-            return
-        dx = event.x - self._hist_pan_last_x
-        if dx == 0:
-            return
-        pad_l, pad_r, _pad_t, _pad_b = self.HIST_PAD
-        width = self.hist_canvas.winfo_width()
-        plot_w = max(width - pad_l - pad_r, 1)
-        lo, hi = self._hist_current_range(widths)
-        shift = -dx * (hi - lo) / plot_w
-        self.hist_view_min = lo + shift
-        self.hist_view_max = hi + shift
-        self._hist_pan_last_x = event.x
-        self._redraw_histogram()
-
-    def _hist_button_release(self, event):
-        self._hist_pan_last_x = None
 
     def _redraw_histogram(self):
-        c = self.hist_canvas
-        c.delete("all")
-        width = c.winfo_width()
-        height = c.winfo_height()
-        if width < 20 or height < 20:
-            return
-
-        ch = self.hist_channel.get()
-        widths = self.pulse_widths.get(ch, [])
-        pad_l, pad_r, pad_t, pad_b = self.HIST_PAD
+        widths = self.pulse_widths.get(self.hist_channel, [])
+        color = COLOR_CH_A if self.hist_channel == 0 else COLOR_CH_B
+        self.hist_bars.setOpts(brush=pg.mkBrush(color))
 
         if not widths:
-            c.create_text(width // 2, height // 2, text="(no pulses yet on this channel)", fill="#888888")
+            self.hist_bars.setOpts(x=[0], height=[0], width=1)
+            self.hist_info_label.setText("(no pulses yet on this channel)")
             return
 
+        # view range: full data range unless the user has zoomed (in which
+        # case hist_view_min/max holds what they zoomed to, so new data
+        # arriving doesn't yank their view back to "full" on every redraw)
         lo, hi = self._hist_current_range(widths)
+
         nbins = 60
         bin_w = (hi - lo) / nbins
         counts = [0] * nbins
@@ -787,208 +1196,54 @@ class App:
         for w in widths:
             if w < lo or w > hi:
                 continue
-            idx = int((w - lo) / bin_w)
+            idx = int((w - lo) / bin_w) if bin_w > 0 else 0
             if idx >= nbins:
                 idx = nbins - 1
             elif idx < 0:
                 idx = 0
             counts[idx] += 1
             in_view += 1
+
         max_count = max(counts) if counts else 0
-
-        plot_w = width - pad_l - pad_r
-        plot_h = height - pad_t - pad_b
-        bar_w = plot_w / nbins
-
         if max_count == 0:
-            c.create_text(width // 2, height // 2, text="(no pulses in this time range - zoom out)",
-                          fill="#888888")
+            self.hist_bars.setOpts(x=[0], height=[0], width=1)
+            self.hist_info_label.setText(
+                f"(no pulses in {format_duration_us(lo)}-{format_duration_us(hi)} - reset view to zoom out)")
             return
 
-        # log scale on the count axis: log10(count+1), so a rare sharp
-        # spike (e.g. a 100 kHz I2C clock) stays visible next to a much
-        # taller but structureless smear, instead of being flattened to
-        # a sliver by a linear axis.
-        log_max = math.log10(max_count + 1)
+        # log scale on the count axis: bar height IS log10(count+1), so a
+        # rare sharp spike (e.g. a 100 kHz I2C clock) stays visible next to
+        # a much taller but structureless smear instead of being flattened
+        # to a sliver by a linear axis. The left-axis ticks below translate
+        # these log-space heights back into real, human counts.
+        centers = [lo + (i + 0.5) * bin_w for i, cnt in enumerate(counts) if cnt != 0]
+        heights = [math.log10(cnt + 1) for cnt in counts if cnt != 0]
 
-        for i, cnt in enumerate(counts):
-            if cnt == 0:
-                continue
-            x0 = pad_l + i * bar_w
-            x1 = x0 + bar_w * 0.9
-            bar_h = (math.log10(cnt + 1) / log_max) * plot_h if log_max > 0 else plot_h
-            y1 = pad_t + plot_h
-            y0 = y1 - bar_h
-            c.create_rectangle(x0, y0, x1, y1, fill=self.CHANNEL_COLORS[ch % len(self.CHANNEL_COLORS)],
-                                outline="")
+        self.hist_bars.setOpts(x=centers, height=heights, width=bin_w * 0.9)
 
-        # axes
-        c.create_line(pad_l, pad_t + plot_h, pad_l + plot_w, pad_t + plot_h, fill="#888888")
-        c.create_line(pad_l, pad_t, pad_l, pad_t + plot_h, fill="#888888")
-
-        # log-scale gridlines/labels on the count axis, at powers of ten
+        axis = self.hist_plot_widget.getPlotItem().getAxis("left")
+        ticks = []
         mark = 1
         while mark <= max_count:
-            y = pad_t + plot_h - (math.log10(mark + 1) / log_max) * plot_h if log_max > 0 else pad_t + plot_h
-            c.create_line(pad_l, y, pad_l + plot_w, y, fill="#eeeeee")
-            c.create_text(pad_l - 4, y, anchor="e", text=str(mark), fill="#888888", font=("Courier New", 8))
+            ticks.append((math.log10(mark + 1), str(mark)))
             mark *= 10
-        c.create_text(4, pad_t, anchor="nw", text="count\n(log)", fill="#888888", font=("Courier New", 8))
+        axis.setTicks([ticks])
 
-        c.create_text(pad_l, pad_t + plot_h + 4, anchor="nw", text=f"{lo:.2f} us", fill="#555555")
-        c.create_text(pad_l + plot_w, pad_t + plot_h + 4, anchor="ne", text=f"{hi:.2f} us", fill="#555555")
-        c.create_text(pad_l + plot_w / 2, pad_t + plot_h + 16, anchor="n",
-                      text=f"CH{ch} pulse width ({in_view}/{len(widths)} pulses in view)", fill="#333333")
+        if self.hist_view_min is None:
+            # guarded: this triggers sigXRangeChanged, which would otherwise
+            # be indistinguishable from the user actually dragging/zooming
+            self._hist_redraw_in_progress = True
+            try:
+                self.hist_plot_widget.getPlotItem().setXRange(lo, hi, padding=0.02)
+            finally:
+                self._hist_redraw_in_progress = False
 
-    # --------------------------------------------------------
-    #  Waveform: zoom / pan / cursor / markers
-    # --------------------------------------------------------
-    def _zoom_in(self):
-        self.us_per_pixel = max(self.us_per_pixel / 1.5, 0.05)
-        self._update_zoom_label()
+        self.hist_info_label.setText(
+            f"{in_view}/{len(widths)} pulses in view, {format_duration_us(lo)}-{format_duration_us(hi)}")
 
-    def _zoom_out(self):
-        self.us_per_pixel = min(self.us_per_pixel * 1.5, 200000.0)
-        self._update_zoom_label()
-
-    def _wave_wheel(self, event):
-        if event.delta > 0:
-            self._zoom_in()
-        else:
-            self._zoom_out()
-
-    def _update_zoom_label(self):
-        self.zoom_var.set(f"{self.us_per_pixel:.2f} us/pixel")
-
-    def _follow_live(self):
-        self.view_end_us = None   # None means "track the latest record", restored on next redraw
-
-    def _clear_markers(self):
-        self.markers = []
-        self.marker_var.set("markers: none placed")
-
-    def _current_view_end_us(self):
-        if self.view_end_us is not None:
-            return self.view_end_us
-        if self.wave_records:
-            return self.wave_records[-1][0] / TICKS_PER_US
-        return 0.0
-
-    def _x_to_us(self, x):
-        width = self.wave_canvas.winfo_width()
-        view_end = self._current_view_end_us()
-        window_us = width * self.us_per_pixel
-        t0 = view_end - window_us
-        return t0 + x * self.us_per_pixel
-
-    def _wave_button_press(self, event):
-        self._pan_last_x = event.x
-        # placing a marker: click without dragging. We just always
-        # place/replace on press and let drag override via _wave_drag
-        # moving the view instead - simplest to treat a press as "start
-        # of a potential pan", and place a marker only if release
-        # happens near the press point (see _wave_button_release)
-        self._press_x = event.x
-
-    def _wave_drag(self, event):
-        if self._pan_last_x is None:
-            return
-        dx = event.x - self._pan_last_x
-        if dx != 0:
-            self.view_end_us = self._current_view_end_us() - dx * self.us_per_pixel
-            self._pan_last_x = event.x
-
-    def _wave_button_release(self, event):
-        if self._pan_last_x is not None and abs(event.x - self._press_x) < 3:
-            # treated as a click, not a drag - place a marker
-            t = self._x_to_us(event.x)
-            if len(self.markers) >= 2:
-                self.markers = []
-            self.markers.append(t)
-            if len(self.markers) == 2:
-                dt = abs(self.markers[1] - self.markers[0])
-                self.marker_var.set(f"markers: {self.markers[0]:.2f} us, {self.markers[1]:.2f} us  "
-                                    f"(Δ = {dt:.2f} us)")
-            else:
-                self.marker_var.set(f"markers: {self.markers[0]:.2f} us (place one more)")
-        self._pan_last_x = None
-
-    def _wave_motion(self, event):
-        t = self._x_to_us(event.x)
-        self.cursor_us = t
-        self.cursor_var.set(f"cursor: t={t:.2f} us")
-
-    # --------------------------------------------------------
-    #  Waveform redraw
-    # --------------------------------------------------------
-    def _redraw_waveform(self):
-        c = self.wave_canvas
-        c.delete("wave")
-        width = c.winfo_width()
-        height = c.winfo_height()
-        if width < 10 or height < 10:
-            return
-
-        view_end = self._current_view_end_us()
-        window_us = max(width * self.us_per_pixel, 1.0)
-        t0 = view_end - window_us
-
-        row_h = height / NUM_CHANNELS
-        pad = 6
-
-        if self.wave_records:
-            # find the last sample at/before t0 so the trace starts at
-            # the right level instead of defaulting to 0
-            ts_list = [r[0] / TICKS_PER_US for r in self.wave_records]
-            start_idx = bisect.bisect_right(ts_list, t0) - 1
-            if start_idx < 0:
-                start_idx = 0
-
-            for ch in range(NUM_CHANNELS):
-                y_hi = ch * row_h + pad
-                y_lo = (ch + 1) * row_h - pad
-
-                level = (self.wave_records[start_idx][1] >> ch) & 1
-                y = y_hi if level else y_lo
-                pts = [0.0, y]
-
-                for ts, state in self.wave_records[start_idx:]:
-                    t = ts / TICKS_PER_US
-                    if t < t0:
-                        continue
-                    if t > view_end:
-                        break
-                    xt = (t - t0) / self.us_per_pixel
-                    newlevel = (state >> ch) & 1
-                    newy = y_hi if newlevel else y_lo
-                    pts += [xt, y]
-                    pts += [xt, newy]
-                    y = newy
-
-                pts += [width, y]
-
-                color = self.CHANNEL_COLORS[ch % len(self.CHANNEL_COLORS)]
-                if len(pts) >= 4:
-                    c.create_line(*pts, fill=color, width=2, tags="wave")
-                c.create_text(pad, ch * row_h + pad, anchor="nw", text=f"CH{ch}",
-                              fill="#666666", tags="wave")
-                c.create_line(0, (ch + 1) * row_h, width, (ch + 1) * row_h,
-                              fill="#dddddd", tags="wave")
-
-        # markers
-        for mt in self.markers:
-            if t0 <= mt <= view_end:
-                mx = (mt - t0) / self.us_per_pixel
-                c.create_line(mx, 0, mx, height, fill="#cc00cc", dash=(4, 2), tags="wave")
-
-        if len(self.markers) == 2 and t0 <= self.markers[0] <= view_end and t0 <= self.markers[1] <= view_end:
-            x0 = (self.markers[0] - t0) / self.us_per_pixel
-            x1 = (self.markers[1] - t0) / self.us_per_pixel
-            c.create_line(x0, 14, x1, 14, fill="#cc00cc", arrow="both", tags="wave")
-
-    # --------------------------------------------------------
+    # ========================================================
     #  Clear Display / Save / Load
-    # --------------------------------------------------------
+    # ========================================================
     def _clear_display(self):
         self.records.clear()
         self.wave_records.clear()
@@ -996,28 +1251,19 @@ class App:
         self.records_received = 0
         self.prev_ts = None
         self.last_record_wall_time = None
-        self.markers = []
-        self.marker_var.set("markers: none placed")
-        self.view_end_us = None
         self.stats_dirty = True
-
-        self.log_text.configure(state="normal")
-        self.log_text.delete("1.0", "end")
-        self.log_text.configure(state="disabled")
-        self.wave_canvas.delete("wave")
-
+        self.log_text.clear()
+        self._log_buffer.clear()
+        self.curve_a.setData([], [])
+        self.curve_b.setData([], [])
         self._log_system("Display cleared (FPGA state untouched - use Reset to reset the timestamp counter)")
 
     def _save_csv(self):
         if not self.records:
-            messagebox.showinfo("Nothing to save", "No records to save.")
+            QtWidgets.QMessageBox.information(self, "Nothing to save", "No records to save.")
             return
         default_name = f"capture_{time.strftime('%Y%m%d_%H%M%S')}.csv"
-        path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            initialfile=default_name,
-        )
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save CSV", default_name, "CSV files (*.csv)")
         if not path:
             return
         try:
@@ -1034,19 +1280,17 @@ class App:
                     w.writerow([ts, format(state, f"0{NUM_CHANNELS}b"), f"{delta_us:.2f}"])
             self._log_system(f"Saved {len(self.records)} records to {path}")
         except OSError as exc:
-            messagebox.showerror("Save failed", str(exc))
+            QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
 
     def _load_csv(self):
-        path = filedialog.askopenfilename(
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-        )
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load CSV", "", "CSV files (*.csv)")
         if not path:
             return
         try:
             loaded = []
             with open(path, newline="") as f:
                 r = csv.reader(f)
-                header = next(r, None)
+                next(r, None)
                 for row in r:
                     if len(row) < 2:
                         continue
@@ -1054,38 +1298,75 @@ class App:
                     state = int(row[1], 2)
                     loaded.append((ts, state))
         except (OSError, ValueError) as exc:
-            messagebox.showerror("Load failed", str(exc))
+            QtWidgets.QMessageBox.critical(self, "Load failed", str(exc))
             return
 
         if not loaded:
-            messagebox.showinfo("Empty file", "No records found in that CSV.")
+            QtWidgets.QMessageBox.information(self, "Empty file", "No records found in that CSV.")
             return
 
         self._clear_display()
         self.records = loaded
         self.wave_records = loaded[-WAVE_MAX_SAMPLES:]
         self.records_received = len(loaded)
-        self.count_var.set(f"Records: {self.records_received}")
         self.stats_dirty = True
-        self.view_end_us = loaded[-1][0] / TICKS_PER_US   # view the loaded data, not "live"
+        self._redraw_waveform()
         self._log_system(f"Loaded {len(loaded)} records from {path} (offline view - not connected to live data)")
 
-    # --------------------------------------------------------
-    def shutdown(self):
+    # ========================================================
+    #  Waveform redraw - vectorised with numpy (a pyqtgraph dependency
+    #  already, not a new one) rather than a per-point Python loop, so
+    #  a flood of records doesn't turn this into the bottleneck pyqtgraph
+    #  was chosen to avoid.
+    # ========================================================
+    def _redraw_waveform(self):
+        if not self.wave_records:
+            self.curve_a.setData([], [])
+            self.curve_b.setData([], [])
+            return
+
+        ts = np.array([r[0] for r in self.wave_records], dtype=np.float64)
+        states = np.array([r[1] for r in self.wave_records], dtype=np.uint8)
+        t_us = ts / TICKS_PER_US
+
+        for ch, curve in ((0, self.curve_a), (1, self.curve_b)):
+            levels = (states >> ch) & 1
+            if len(levels) == 1:
+                curve.setData(t_us, levels.astype(np.float64))
+                continue
+            # step waveform: value holds at levels[i-1] right up to t[i],
+            # then jumps to levels[i] at that same timestamp - i.e. each
+            # (t[i], levels[i-1]) then (t[i], levels[i]) pair, for i=1..n-1,
+            # preceded by the very first (t[0], levels[0]).
+            xs = np.concatenate(([t_us[0]], np.repeat(t_us[1:], 2)))
+            pair = np.column_stack((levels[:-1], levels[1:])).ravel()
+            ys = np.concatenate(([levels[0]], pair)).astype(np.float64)
+            curve.setData(xs, ys)
+
+        if self.follow_latest:
+            # oscilloscope "roll mode": keep the newest data at the right
+            # edge, same window width as whatever the user last set
+            latest_us = t_us[-1]
+            lo, hi = self._wave_current_range()
+            width = hi - lo
+            self._set_wave_xrange(latest_us - width, latest_us)
+
+    # ========================================================
+    def closeEvent(self, event):
         self._disconnect()
+        event.accept()
 
 
 def main():
+    pg.setConfigOption("background", COLOR_BG)
+    pg.setConfigOption("foreground", COLOR_TEXT)
+    pg.setConfigOptions(antialias=True)
+
     initial_port = sys.argv[1] if len(sys.argv) > 1 else None
-    root = tk.Tk()
-    app = App(root, initial_port=initial_port)
-
-    def on_close():
-        app.shutdown()
-        root.destroy()
-
-    root.protocol("WM_DELETE_WINDOW", on_close)
-    root.mainloop()
+    app = QtWidgets.QApplication(sys.argv)
+    win = MainWindow(initial_port=initial_port)
+    win.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

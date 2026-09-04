@@ -32,3 +32,12 @@ __pycache__/
 
 # host.py capture logs - local test data, not project source
 capture_*.csv
+
+# Python virtual environments (needed for PySide6/pyqtgraph/pyserial -
+# see README's "Host software" section). A venv created with the
+# standard `python -m venv` already self-excludes via its own
+# .venv/.gitignore, but this is a defensive backstop in case one gets
+# created differently (virtualenv, an older Python, etc.) or renamed.
+.venv/
+venv/
+env/

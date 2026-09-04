@@ -14,7 +14,7 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from host import FrameParser, MARKER_EDGE, MARKER_STAT, MARKER_ACK, MARKER_ERR
+from protocol import FrameParser, MARKER_EDGE, MARKER_STAT, MARKER_ACK, MARKER_ERR
 
 
 def build_edge(ts, state):

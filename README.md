@@ -11,12 +11,24 @@ Working today:
 - A framed, checksummed, self-resynchronising UART protocol between the FPGA and the host (start/stop/reset/status commands, edge records, ACK/ERROR replies).
 - A from-scratch UART tx/rx pair, built and tested on the Tang Nano 9K.
 - A 256-entry, block-RAM-backed capture FIFO, with high-water mark reported in the status reply.
-- A Python (Tkinter) viewer: live or offline (loaded from CSV) waveform view with pan/zoom/cursor/markers, a pulse-width histogram, and CSV export.
+- A PySide6 + pyqtgraph host GUI (dark instrument theme): live or offline (loaded from CSV) waveform view with pan/zoom/cursor/two draggable markers, a log-scale/zoomable pulse-width histogram, CSV export, and a "protocol hint" panel that reads the dominant pulse width and reports the closest matching clock/UART baud/1-Wire pulse - timing arithmetic only, not protocol decoding.
 
 Not built yet:
 - Protocol decoders (UART, I2C, SPI framing on top of the raw edges).
-- The identification logic that would actually tell you "this looks like I2C" from the capture.
+- The identification logic that would actually tell you "this looks like I2C" from the capture - the hint panel above is a timing-only nudge toward that, not the real thing.
 - Switching the pull-ups on/off from software. `ctrl_a`/`ctrl_b` exist and are wired to the PCB, but they're currently hardwired off - nothing decides when to turn a pull-up on yet.
+
+## Host software
+
+Requires Python 3 plus:
+```
+pip install PySide6 pyqtgraph pyserial
+```
+Then run:
+```
+python3 host/host.py [serial-port]
+```
+`host/protocol.py` holds the wire-format parser (framing, checksums, resync) and `host/hint.py` the protocol-hint arithmetic; both are plain Python with no GUI dependency, and each has a standalone test script (`host/test_frame_parser.py`, `host/test_hint.py`) that can be run without any hardware attached.
 
 ## The PCB
 
