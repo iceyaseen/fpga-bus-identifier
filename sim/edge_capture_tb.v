@@ -23,8 +23,8 @@
 // ============================================================
 module edge_capture_tb;
 
-    localparam CLKS_PER_BIT_TB = 234;   // matches uart_tx/uart_rx's default
-    localparam ACK_ROUND_TRIP  = 10_000; // > one 3-byte ACK frame's transmit time (7020 clocks)
+    localparam CLKS_PER_BIT_TB = 29;    // matches uart_tx/uart_rx's default (921600 baud)
+    localparam ACK_ROUND_TRIP  = 10_000; // > one 3-byte ACK frame's transmit time (870 clocks)
 
     reg clk = 1'b0;
     always #1 clk = ~clk;
@@ -198,7 +198,7 @@ module edge_capture_tb;
         // Real usage (host.py's REPL) sends one command, waits to see the
         // ACK, then sends the next - a human or script pacing commands,
         // not blasting bytes back to back. ACK_ROUND_TRIP is generous
-        // headroom for one 3-byte ACK frame (3*10*234 clocks) to fully
+        // headroom for one 3-byte ACK frame (3*10*29 clocks) to fully
         // arrive before the next command goes out, so the "won't get a
         // separate ACK if the previous one is still in flight" tradeoff
         // (documented at the ack_req/ack_pending guard in top.v) never
@@ -244,8 +244,8 @@ module edge_capture_tb;
         drive_probe(300, 2'b00);
 
         // let the FIFO fully drain over the real UART before checking -
-        // 20 records x 6 bytes x 10 bits x 234 clocks/bit is already
-        // ~280k clocks of serialised UART time by itself, so poll
+        // 20 records x 6 bytes x 10 bits x 29 clocks/bit is already
+        // ~35k clocks of serialised UART time by itself, so poll
         // instead of guessing a fixed wait
         i = 0;
         while (dec_count < exp_count && i < 2_000_000) begin

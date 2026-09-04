@@ -7,8 +7,11 @@
 //  where a real signal is still slewing.
 // ============================================================
 module uart_rx #(
-    parameter [15:0] CLKS_PER_BIT = 16'd234,   // 27_000_000 / 115_200, rounded down
-    parameter [15:0] HALF_BIT     = 16'd117    // CLKS_PER_BIT / 2, constant-folded, not a runtime divide
+    // 27_000_000 / 921_600 = 29.296875, rounded to 29 -> actual baud
+    // 931_034 (27_000_000 / 29), +1.02% off the nominal 921600. Inside
+    // the ~2% tolerance a UART needs, so no alternate rate required.
+    parameter [15:0] CLKS_PER_BIT = 16'd29,
+    parameter [15:0] HALF_BIT     = 16'd14     // CLKS_PER_BIT / 2, constant-folded, not a runtime divide
 )(
     input  wire       clk,
     input  wire       rx,

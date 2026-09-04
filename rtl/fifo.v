@@ -1,12 +1,20 @@
 // ============================================================
-//  fifo.v - plain-flip-flop FIFO between edge_capture and the UART.
+//  fifo.v - FIFO between edge_capture and the UART.
 //
-//  DEPTH is a real top-level parameter now (see top.v's FIFO_DEPTH).
-//  At WIDTH=40, DEPTH x 40 flip-flops get spent on this FIFO alone -
-//  128 is 5120 FFs, comfortably inside the GW1NR-9C's ~6480-FF total
-//  budget alongside the rest of the design (~90 FFs for everything
-//  else, last measured). 256 would need 10240 FFs, more than the
-//  whole chip has - swap for BSRAM-backed storage to go that deep.
+//  DEPTH is a real top-level parameter (see top.v's FIFO_DEPTH), now
+//  256. At WIDTH=40 that's 10240 bits - more than the GW1NR-9C's
+//  ~6480 total flip-flops (a pure-FF FIFO tops out around depth 128,
+//  5120 FFs, alongside the rest of the design's ~90 FFs), so `mem`
+//  below is tagged for block-RAM inference instead: one of the
+//  chip's 18Kbit BSRAM blocks holds the whole 10240-bit array with
+//  room to spare, versus needing more flip-flops than exist on the
+//  entire device. Read/write stay separate ports at independent
+//  addresses (wr_ptr/rd_ptr), i.e. a plain simple-dual-port BRAM -
+//  exactly what `ram_style = "block"` plus a registered read (see
+//  the do_pop block below) is meant to map onto. This is a synthesis
+//  attribute on an ordinary Verilog memory array, not a named Gowin
+//  primitive, so iverilog simulation is unaffected (attribute
+//  ignored, array behaves the same as before).
 //
 //  PTR_W used to be a separate hand-set parameter (matching this
 //  project's usual "explicit, hand-picked widths" convention - see
@@ -28,7 +36,7 @@
 //  the sticky overflow flag instead of corrupting the queue.
 // ============================================================
 module fifo_ff #(
-    parameter DEPTH = 128,
+    parameter DEPTH = 256,
     parameter WIDTH = 40,
     parameter PTR_W = $clog2(DEPTH)
 ) (
@@ -47,7 +55,7 @@ module fifo_ff #(
     output reg  [PTR_W:0]      high_water     // largest occupancy seen, 0..DEPTH
 );
 
-    (* ram_style = "registers" *)
+    (* ram_style = "block" *)
     reg [WIDTH-1:0] mem [0:DEPTH-1];
     reg [PTR_W-1:0] wr_ptr;
     reg [PTR_W-1:0] rd_ptr;

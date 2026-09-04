@@ -7,10 +7,11 @@ A tool for figuring out how an unknown chip talks before you know anything about
 The FPGA side is still in progress.
 
 Working today:
-- Edge capture on two probe channels, timestamped and streamed to a Python host over UART.
-- A framed UART protocol between the FPGA and the host (start/stop/reset/status commands, checksummed records).
+- Edge capture on two probe channels, timestamped and streamed to a Python host over UART at 921600 baud.
+- A framed, checksummed, self-resynchronising UART protocol between the FPGA and the host (start/stop/reset/status commands, edge records, ACK/ERROR replies).
 - A from-scratch UART tx/rx pair, built and tested on the Tang Nano 9K.
-- A Python (Tkinter) viewer for the captured waveform, pulse-width stats, and CSV export.
+- A 256-entry, block-RAM-backed capture FIFO, with high-water mark reported in the status reply.
+- A Python (Tkinter) viewer: live or offline (loaded from CSV) waveform view with pan/zoom/cursor/markers, a pulse-width histogram, and CSV export.
 
 Not built yet:
 - Protocol decoders (UART, I2C, SPI framing on top of the raw edges).

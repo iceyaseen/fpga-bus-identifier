@@ -34,6 +34,7 @@
 
 import sys
 import time
+import math
 import struct
 import threading
 import queue
@@ -207,6 +208,9 @@ class App:
         self.shortest_pulse_us = None
         self.longest_gap_us = None
         self.hist_channel = tk.IntVar(value=0)
+        self.hist_view_min = None          # us; None = auto (full range of selected channel's data)
+        self.hist_view_max = None
+        self._hist_pan_last_x = None
 
         self._build_ui()
         self._refresh_ports(preselect=initial_port)
@@ -229,7 +233,7 @@ class App:
         ttk.Button(top, text="Refresh", command=lambda: self._refresh_ports()).pack(side="left")
 
         ttk.Label(top, text="Baud:").pack(side="left", padx=(10, 0))
-        self.baud_var = tk.StringVar(value="115200")
+        self.baud_var = tk.StringVar(value="921600")
         ttk.Entry(top, textvariable=self.baud_var, width=8).pack(side="left", padx=(2, 4))
 
         self.connect_btn = ttk.Button(top, text="Connect", command=self._connect)
@@ -274,6 +278,9 @@ class App:
 
         self.resync_var = tk.StringVar(value="resyncs: 0")
         ttk.Label(counters, textvariable=self.resync_var, width=14).pack(side="left", padx=(20, 0))
+
+        self.high_water_var = tk.StringVar(value="high water: -")
+        ttk.Label(counters, textvariable=self.high_water_var, width=20).pack(side="left", padx=(20, 0))
 
         # ---- tabbed body: Waveform / Statistics / Log ----
         nb = ttk.Notebook(self.root)
@@ -337,10 +344,15 @@ class App:
         for ch in range(NUM_CHANNELS):
             ttk.Radiobutton(chan_frame, text=f"CH{ch}", variable=self.hist_channel, value=ch,
                              command=self._redraw_histogram).pack(side="left", padx=4)
+        ttk.Button(chan_frame, text="Zoom In", command=lambda: self._hist_zoom(1 / 1.5)).pack(side="right", padx=2)
+        ttk.Button(chan_frame, text="Zoom Out", command=lambda: self._hist_zoom(1.5)).pack(side="right", padx=2)
+        ttk.Button(chan_frame, text="Reset View", command=self._hist_reset_view).pack(side="right", padx=(12, 2))
 
-        ttk.Label(parent, text="Pulse-width histogram (pooled high+low durations) - "
-                               "a UART line clusters tightly around one bit period",
-                  padding=(8, 4)).pack(side="top", anchor="w")
+        ttk.Label(parent, text="Pulse-width histogram (pooled high+low durations), log-scale count axis - "
+                               "a UART line clusters tightly around one bit period, a 100 kHz I2C clock "
+                               "shows a sharp spike near 5 us, contact bounce is a wide structureless smear. "
+                               "Scroll wheel or Zoom In/Out to inspect the time axis; drag to pan.",
+                  padding=(8, 4), wraplength=900).pack(side="top", anchor="w")
 
         self.hist_canvas = tk.Canvas(parent, bg="white", height=280, highlightthickness=1,
                                       highlightbackground="#aaaaaa")
@@ -352,6 +364,12 @@ class App:
         # fires whenever the canvas is resized OR first mapped, so bind a
         # redraw there too (not just the stats_dirty-driven one in _stats_tick)
         self.hist_canvas.bind("<Configure>", lambda e: self._redraw_histogram())
+        self.hist_canvas.bind("<ButtonPress-1>", self._hist_button_press)
+        self.hist_canvas.bind("<B1-Motion>", self._hist_drag)
+        self.hist_canvas.bind("<ButtonRelease-1>", self._hist_button_release)
+        self.hist_canvas.bind("<MouseWheel>", self._hist_wheel)                       # Windows/Mac
+        self.hist_canvas.bind("<Button-4>", lambda e: self._hist_zoom(1 / 1.5, self._hist_x_to_us(e.x)))  # Linux up
+        self.hist_canvas.bind("<Button-5>", lambda e: self._hist_zoom(1.5, self._hist_x_to_us(e.x)))      # Linux down
 
     def _build_log_tab(self, parent):
         header = ttk.Frame(parent, padding=(4, 4))
@@ -550,6 +568,7 @@ class App:
                 self.overflow_since_reset = True
             self.fifo_high_water = hw
             self.fifo_depth = depth
+            self.high_water_var.set(f"high water: {hw} / {depth}")
             self._log(f"[STATUS] overflow_since_reset={'YES' if self.overflow_since_reset else 'no'}  "
                       f"high_water={hw}/{depth}", tag="status")
         elif kind == "ACK":
@@ -670,6 +689,80 @@ class App:
         else:
             self.stat_longest_gap_var.set(f"Longest gap: {self.longest_gap_us:.2f} us")
 
+    # ---- histogram: zoom / pan on the time axis ----
+    HIST_PAD = (50, 10, 10, 30)   # pad_l, pad_r, pad_t, pad_b
+
+    def _hist_full_range(self, widths):
+        lo, hi = min(widths), max(widths)
+        if hi <= lo:
+            hi = lo + 1.0
+        return lo, hi
+
+    def _hist_current_range(self, widths):
+        if self.hist_view_min is None or self.hist_view_max is None:
+            return self._hist_full_range(widths)
+        return self.hist_view_min, self.hist_view_max
+
+    def _hist_x_to_us(self, x):
+        widths = self.pulse_widths.get(self.hist_channel.get(), [])
+        if not widths:
+            return 0.0
+        pad_l, pad_r, _pad_t, _pad_b = self.HIST_PAD
+        width = self.hist_canvas.winfo_width()
+        plot_w = max(width - pad_l - pad_r, 1)
+        lo, hi = self._hist_current_range(widths)
+        frac = (x - pad_l) / plot_w
+        return lo + frac * (hi - lo)
+
+    def _hist_zoom(self, factor, center=None):
+        widths = self.pulse_widths.get(self.hist_channel.get(), [])
+        if not widths:
+            return
+        lo, hi = self._hist_current_range(widths)
+        if center is None:
+            center = (lo + hi) / 2.0
+        half = max((hi - lo) * factor / 2.0, 1e-6)
+        self.hist_view_min = center - half
+        self.hist_view_max = center + half
+        self._redraw_histogram()
+
+    def _hist_reset_view(self):
+        self.hist_view_min = None
+        self.hist_view_max = None
+        self._redraw_histogram()
+
+    def _hist_wheel(self, event):
+        center = self._hist_x_to_us(event.x)
+        if event.delta > 0:
+            self._hist_zoom(1 / 1.5, center)
+        else:
+            self._hist_zoom(1.5, center)
+
+    def _hist_button_press(self, event):
+        self._hist_pan_last_x = event.x
+
+    def _hist_drag(self, event):
+        if self._hist_pan_last_x is None:
+            return
+        widths = self.pulse_widths.get(self.hist_channel.get(), [])
+        if not widths:
+            return
+        dx = event.x - self._hist_pan_last_x
+        if dx == 0:
+            return
+        pad_l, pad_r, _pad_t, _pad_b = self.HIST_PAD
+        width = self.hist_canvas.winfo_width()
+        plot_w = max(width - pad_l - pad_r, 1)
+        lo, hi = self._hist_current_range(widths)
+        shift = -dx * (hi - lo) / plot_w
+        self.hist_view_min = lo + shift
+        self.hist_view_max = hi + shift
+        self._hist_pan_last_x = event.x
+        self._redraw_histogram()
+
+    def _hist_button_release(self, event):
+        self._hist_pan_last_x = None
+
     def _redraw_histogram(self):
         c = self.hist_canvas
         c.delete("all")
@@ -680,33 +773,50 @@ class App:
 
         ch = self.hist_channel.get()
         widths = self.pulse_widths.get(ch, [])
-        pad_l, pad_r, pad_t, pad_b = 50, 10, 10, 30
+        pad_l, pad_r, pad_t, pad_b = self.HIST_PAD
 
         if not widths:
             c.create_text(width // 2, height // 2, text="(no pulses yet on this channel)", fill="#888888")
             return
 
-        lo, hi = min(widths), max(widths)
-        if hi <= lo:
-            hi = lo + 1.0
-        nbins = 40
+        lo, hi = self._hist_current_range(widths)
+        nbins = 60
         bin_w = (hi - lo) / nbins
         counts = [0] * nbins
+        in_view = 0
         for w in widths:
+            if w < lo or w > hi:
+                continue
             idx = int((w - lo) / bin_w)
             if idx >= nbins:
                 idx = nbins - 1
+            elif idx < 0:
+                idx = 0
             counts[idx] += 1
-        max_count = max(counts)
+            in_view += 1
+        max_count = max(counts) if counts else 0
 
         plot_w = width - pad_l - pad_r
         plot_h = height - pad_t - pad_b
         bar_w = plot_w / nbins
 
+        if max_count == 0:
+            c.create_text(width // 2, height // 2, text="(no pulses in this time range - zoom out)",
+                          fill="#888888")
+            return
+
+        # log scale on the count axis: log10(count+1), so a rare sharp
+        # spike (e.g. a 100 kHz I2C clock) stays visible next to a much
+        # taller but structureless smear, instead of being flattened to
+        # a sliver by a linear axis.
+        log_max = math.log10(max_count + 1)
+
         for i, cnt in enumerate(counts):
+            if cnt == 0:
+                continue
             x0 = pad_l + i * bar_w
             x1 = x0 + bar_w * 0.9
-            bar_h = (cnt / max_count) * plot_h if max_count else 0
+            bar_h = (math.log10(cnt + 1) / log_max) * plot_h if log_max > 0 else plot_h
             y1 = pad_t + plot_h
             y0 = y1 - bar_h
             c.create_rectangle(x0, y0, x1, y1, fill=self.CHANNEL_COLORS[ch % len(self.CHANNEL_COLORS)],
@@ -715,11 +825,20 @@ class App:
         # axes
         c.create_line(pad_l, pad_t + plot_h, pad_l + plot_w, pad_t + plot_h, fill="#888888")
         c.create_line(pad_l, pad_t, pad_l, pad_t + plot_h, fill="#888888")
-        c.create_text(pad_l, pad_t, anchor="nw", text=f"{max_count}", fill="#888888")
+
+        # log-scale gridlines/labels on the count axis, at powers of ten
+        mark = 1
+        while mark <= max_count:
+            y = pad_t + plot_h - (math.log10(mark + 1) / log_max) * plot_h if log_max > 0 else pad_t + plot_h
+            c.create_line(pad_l, y, pad_l + plot_w, y, fill="#eeeeee")
+            c.create_text(pad_l - 4, y, anchor="e", text=str(mark), fill="#888888", font=("Courier New", 8))
+            mark *= 10
+        c.create_text(4, pad_t, anchor="nw", text="count\n(log)", fill="#888888", font=("Courier New", 8))
+
         c.create_text(pad_l, pad_t + plot_h + 4, anchor="nw", text=f"{lo:.2f} us", fill="#555555")
         c.create_text(pad_l + plot_w, pad_t + plot_h + 4, anchor="ne", text=f"{hi:.2f} us", fill="#555555")
         c.create_text(pad_l + plot_w / 2, pad_t + plot_h + 16, anchor="n",
-                      text=f"CH{ch} pulse width ({len(widths)} pulses)", fill="#333333")
+                      text=f"CH{ch} pulse width ({in_view}/{len(widths)} pulses in view)", fill="#333333")
 
     # --------------------------------------------------------
     #  Waveform: zoom / pan / cursor / markers

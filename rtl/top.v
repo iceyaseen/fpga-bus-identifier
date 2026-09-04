@@ -10,7 +10,7 @@
 
 module top #(
     parameter NUM_CHANNELS  = 2,        // probe channel count - see the probe_a/probe_b IOBUFs below
-    parameter FIFO_DEPTH    = 128       // must be a power of 2 - see fifo.v
+    parameter FIFO_DEPTH    = 256       // must be a power of 2 - see fifo.v; BRAM-backed at this depth
 ) (
     input  wire       clk,        // 27 MHz, pin 52
 

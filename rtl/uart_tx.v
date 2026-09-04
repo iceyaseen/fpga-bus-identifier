@@ -4,7 +4,9 @@
 //  shifts out start bit (0) + data[7:0] LSB-first + stop bit (1).
 // ============================================================
 module uart_tx #(
-    parameter [15:0] CLKS_PER_BIT = 16'd234   // 27_000_000 / 115_200 = 234.375 -> 234
+    // 27_000_000 / 921_600 = 29.296875 -> 29 (actual baud 931_034,
+    // +1.02% off nominal - inside the ~2% UART tolerance). See uart_rx.v.
+    parameter [15:0] CLKS_PER_BIT = 16'd29
 )(
     input  wire       clk,
     input  wire       start,
