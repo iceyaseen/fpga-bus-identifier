@@ -30,6 +30,20 @@ python3 host/host.py [serial-port]
 ```
 `host/protocol.py` holds the wire-format parser (framing, checksums, resync) and `host/hint.py` the protocol-hint arithmetic; both are plain Python with no GUI dependency, and each has a standalone test script (`host/test_frame_parser.py`, `host/test_hint.py`) that can be run without any hardware attached.
 
+<p align="center">
+<img src="docs/images/host_ui_overview.png" width="90%">
+<br>
+<sup>Screenshot of a real capture: an ESP32 driving a 100 kHz I2C bus, probed on P_A/P_B. Numbered callouts below.</sup>
+</p>
+
+1. **Sidebar** - connect, start/stop/reset capture, load/save CSV, show/hide the console.
+2. **Waveform navigation** - zoom in/out, a window-width field with an adaptive ns/us/ms/s unit, step left/right, and Follow Latest (an oscilloscope-style roll-mode toggle, lit up green when on).
+3. **Waveform view** - P_A/P_B drawn as square waves. Pan/zoom with the mouse, a crosshair cursor that follows it, and two draggable markers (dashed lines) with a live delta-t readout below the plot.
+4. **Pulse-width histogram** - log-scale count axis, so a rare sharp spike (e.g. a 100 kHz clock) stays visible next to a much taller structureless smear instead of being flattened to nothing; the time axis is independently zoomable to reveal fine structure.
+5. **Statistics + Protocol Hint** - live edge/pulse/gap stats, plus a hint that reads the histogram's dominant pulse width and checks it against known clocks, standard UART bauds, and 1-Wire timing. Pure arithmetic, never a claim to have identified a protocol - see the disclaimer printed under it.
+6. **Console** (hidden by default) - the scrolling log, a raw-byte diagnostic mode, pause (freezes the view without losing anything), and clear.
+7. **Status strip** - a link-alive dot that blinks while connected, live records/sec, FIFO high-water mark, a sticky overflow-since-reset dot, and the frame resync count (flagged only if resyncs happen well after connecting, not for the one-time settle that's normal when the FPGA is already transmitting at connect time).
+
 ## The PCB
 
 A shield that sits on top of the Tang Nano 9K. It has two probe channels and a 4-pin socket for the device under test.
