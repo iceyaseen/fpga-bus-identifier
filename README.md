@@ -15,7 +15,9 @@ Working today:
 - An active I2C master: bidirectional open-drain probe drivers, software-switchable pull-ups, an electrical pre-scan (own pull-up / needs ours / held low / floating, per channel, before any bus traffic), and a 0x08-0x77 address sweep that reports every address that ACKs. Driven from the host's "Scan I2C" button; verified in simulation against a fake I2C slave (exactly one address found, START/STOP/ACK timing checked against spec) and confirmed on real hardware against an MLX90614 at 0x5A.
 
 Not built yet:
-- Reading actual data back from a found device (the I2C master currently only does the one-byte address-probe transaction a scan needs) - UART/SPI as active protocols, and the identification logic that would tell you "this looks like I2C" purely from a passive capture (the hint panel is a timing-only nudge toward that, not the real thing).
+- Reading actual data back from a found device (the I2C master currently only does the one-byte address-probe transaction a scan needs).
+- Decoders for UART, 1-Wire, and PWM.
+- Detection of analog (non-digital) devices - everything so far assumes the thing on the probes is digital.
 
 ## Host software
 
@@ -32,7 +34,7 @@ python3 host/host.py [serial-port]
 <p align="center">
 <img src="docs/images/host_ui_overview.png" width="90%">
 <br>
-<sup>Screenshot of a real capture: an ESP32 driving a 100 kHz I2C bus, probed on P_A/P_B. Numbered callouts below.</sup>
+<sup>Screenshot of a real capture, probed on P_A/P_B. Numbered callouts below.</sup>
 </p>
 
 1. **Sidebar** - connect, start/stop/reset capture, load/save CSV, show/hide the console.
@@ -45,7 +47,7 @@ python3 host/host.py [serial-port]
 
 ## The PCB
 
-A shield that sits on top of the Tang Nano 9K. It has two probe channels and a 4-pin socket for the device under test.
+A shield that sits on top of the Tang Nano 9K. Built and working, not just designed - the photos below are the real board. It has two probe channels and a 4-pin socket for the device under test.
 <p align="center">
 <img src="hardware/images/PCBFrontWithComponents.png.png" width="45%">  <img src="hardware/images/PCBBack.png" width="45%">
 <img src="hardware/images/PCBFrontWithoutComponents.png" width="65%">
@@ -96,8 +98,36 @@ New host commands, single bytes like the existing ones (no framing needed on tha
 
 `E` and `I` are long-running, so unlike every other command their ACK is deferred until the operation actually finishes, not when the byte arrives - that's what lets the host safely chain pre-scan -> sweep off the pre-scan's own ACK. Two new frame types carry the results: `0xA9 PRESCAN_RESULT` (channel, category) and `0xAA ADDR_HIT` (one address that ACKed) - see `host/protocol.py` for the exact wire format, which follows the same `[MARKER][PAYLOAD][CHECKSUM]` scheme as everything else.
 
+## Screenshots
+
+<p align="center">
+<img src="docs/images/i2c_scan_result.png" width="70%">
+<br>
+<sup>A real scan: the pre-scan found a pull-up already present on both channels, and the address sweep found one device, at 0x5A - a real MLX90614 infrared thermometer.</sup>
+</p>
+
+<p align="center">
+<img src="docs/images/breadboard_setup.jpeg" width="70%">
+<br>
+<sup>The Tang Nano 9K wired up on a breadboard while testing against a real MLX90614.</sup>
+</p>
+
+General decoupling notes for this kind of breadboard setup: keep the 10uF bulk capacitor close to the 3.3V and GND rails it's decoupling, and keep the 100nF ceramic capacitor close to the sensor under test, not back at the FPGA end - it's there to filter noise right at the device, and a long lead defeats the point.
+
+| Signal | Tang Nano 9K pin | Goes to |
+|---|---|---|
+| `probe_a` | 56 | Sensor SDA or SCL (depends on the SDA/SCL mapping setting) |
+| `probe_b` | 57 | Sensor SCL or SDA (the other line) |
+| `ctrl_a` | 55 | Channel A pull-up MOSFET gate |
+| `ctrl_b` | 54 | Channel B pull-up MOSFET gate |
+| 3.3V | - | Sensor VDD |
+| GND | - | Sensor GND, common return |
+
+Waveform and pulse-width-histogram screenshots of real captured I2C traffic, plus a contact-bounce histogram for comparison, are still to come - they need the hardware connected and, for the bounce case, a saved capture that doesn't exist yet.
+
 ## Known limitations
 
 - Only single-ended protocols are in scope. CAN and RS-485 are differential and need a transceiver, so they're not supported.
 - A completely unpowered unknown chip can't be identified from the outside. This tool only works on devices that respond when probed.
 - There are two probe channels, so SPI (which needs more lines) isn't reachable yet.
+- The protocol hint only measures timing. A 100 kHz clock could be I2C or SPI - the hint says "consistent with", it does not identify the protocol.
